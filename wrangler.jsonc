@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "myna-app",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-04-01",
+  // nodejs_compat is required by OpenNext (node:crypto, node:buffer, …).
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // Workers AI — Maya's default brain on Cloudflare (see lib/llm.ts).
+  "ai": { "binding": "AI" },
+  "observability": {
+    "enabled": true
+  }
+}
