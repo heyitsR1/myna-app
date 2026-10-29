@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Cloudflare / OpenNext build output
+.open-next/
+.wrangler/
+
+# symlink to ~/college_stuff/prg300 (coursework, not part of this project)
+prg300
