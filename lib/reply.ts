@@ -114,6 +114,14 @@ const BUY_WORDS =
 const SENSITIVE =
   /\b(discount|cheaper|negotiat\w*|best price|last price|refund|money back|return it|exchange|complain\w*|broken|damaged|scratch\w*|fake|scam|wholesale|bulk|manager|human|real person|sasto|chhut|ghatau\w*|paisa firta)\b/i;
 
+/**
+ * A generic price / "what do you have" ask with no item named, in English,
+ * romanised Nepali or Devanagari. Jev scored "kati parcha?" (how much?) as a
+ * `question`, so Maya answered availability instead of showing the list.
+ */
+const PRICE_LIST_ASK =
+  /(\b(kati\s*(ho|parch?ha|parcha|parxa|pardaina|ho\s*dam|ma)?|dam\s*kati|mol\s*kati|rate\s*kati|price\s*(list|please|plz|pls)?|prices|rates?|k\s*k\s*(cha|xa|chha)|ke\s*ke\s*(cha|xa|chha)|what\s+do\s+you\s+(sell|have)|collection|catalog(ue)?)\b|कति|मूल्य|के के छ)/i;
+
 const QUANTITY_CHANGE = /\b(make it|change (it )?to|instead)\b|\b\d+\s*(pairs?|pieces?|pcs|ota|wota)\b/i;
 
 function isBareProductRef(latest: string, lastAssistant: string | null, products: Product[]): Product | null {
@@ -330,6 +338,18 @@ export async function generateAndSendReply(
       `[reply] forced handoff: sensitive words in "${inbound.body.slice(0, 60)}" (triage unavailable)`,
     );
     decision.intent = "handoff";
+  }
+
+  if (
+    decision.intent === "answer" &&
+    !triageHold &&
+    products.length > 0 &&
+    inbound.body.trim().length <= 60 &&
+    PRICE_LIST_ASK.test(inbound.body) &&
+    !matchProduct(products, inbound.body)
+  ) {
+    console.log(`[reply] upgraded → catalogue: generic price ask "${inbound.body.slice(0, 60)}"`);
+    decision.intent = "catalogue";
   }
 
   if (decision.intent === "book_order" && !bookingIsExplicit(inbound.body, lastAssistant, products)) {

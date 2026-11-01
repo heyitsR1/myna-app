@@ -21,7 +21,7 @@ for (const line of readFileSync(".env.local", "utf-8").split("\n")) {
   if (v) env[k.trim()] ??= v;
 }
 const base = env.MYNA_URL ?? "https://myna-app.aarohan567.workers.dev";
-const sender = "9900112233445566";
+const sender = env.SIM_SENDER ?? "9900112233445566";
 const account = env.IG_ACCOUNT_ID ?? "28482564724763771";
 const turns = process.argv.slice(2).length
   ? process.argv.slice(2)

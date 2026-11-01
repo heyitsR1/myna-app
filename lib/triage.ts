@@ -82,7 +82,7 @@ const QUESTIONS = {
       question:
         "Answer a specific question it knows: the price of one named item, delivery, hours, payment methods, whether something is in stock, or return a greeting.",
       catalogue:
-        "Show what is for sale. They asked what the shop has, for the list, the collection, or for prices generally, without naming one specific item.",
+        "Show what is for sale. They asked what the shop has, for the list, the collection, or for prices generally, without naming one specific item. This includes romanised Nepali such as \"kati parcha?\", \"kati ho?\", \"dam kati?\" or \"k k cha?\" when no item is named.",
       buy: "Record an order. They want to place, change, or confirm a purchase of a specific item — including giving just a product code or name as their choice.",
       complaint:
         "Resolve a grievance: a late, wrong, missing or defective order, or a request for a refund, return, or exchange.",
