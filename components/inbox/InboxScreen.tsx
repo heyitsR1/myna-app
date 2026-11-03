@@ -14,7 +14,7 @@ function npr(amount: number): string {
   return `Rs ${Math.round(amount).toLocaleString("en-IN")}`;
 }
 
-type Filter = "all" | "instagram" | "whatsapp" | "messenger" | "needs";
+type Filter = "all" | "instagram" | "whatsapp" | "messenger" | "needs" | "orders";
 
 const CHANNEL_DOT: Record<Channel, string> = {
   whatsapp: "wa",
@@ -58,21 +58,24 @@ function displayName(conv: InboxConversation): string {
 function mood(conv: InboxConversation): { cls: string; label: string } | null {
   const heat = conv.last_frustration === null ? null : Number(conv.last_frustration);
   const warm = conv.last_warmth === null ? null : Number(conv.last_warmth);
-  if (heat !== null && heat >= 1.5) return { cls: "angry", label: "😠 Upset" };
-  if (heat !== null && heat >= 1.0) return { cls: "impatient", label: "⏳ Impatient" };
-  if (warm !== null && warm >= 1.5) return { cls: "happy", label: "💛 Happy" };
+  if (heat !== null && heat >= 1.5) return { cls: "rose", label: "Upset" };
+  if (heat !== null && heat >= 1.0) return { cls: "amber", label: "Impatient" };
+  if (warm !== null && warm >= 1.5) return { cls: "green", label: "Happy" };
   return null;
 }
 
 const INTENT_LABEL: Record<string, string> = {
   question: "Question",
-  catalogue: "Wants the list",
+  catalogue: "Wants the price list",
   buy: "Wants to buy",
   complaint: "Complaint",
   negotiation: "Wants a discount",
   thanks: "Thank you",
   other: "Other",
 };
+
+/** Attachment-only DMs are stored with a fixed label by the webhook. */
+const ATTACHMENT_BODY = /^(Shared an? (video|photo|post|reel|file|attachment)|Sent a voice message|Mentioned you in a story)$/;
 
 function formatTime(iso: string | null): string {
   if (!iso) return "";
@@ -135,7 +138,7 @@ export default function InboxScreen() {
     const poll = window.setInterval(() => {
       loadInbox();
       if (selectedIdRef.current) loadMessages(selectedIdRef.current);
-    }, 10000);
+    }, 4000);
 
     // Live updates when the anon key can see the tables (post-auth setups);
     // the poller above covers dev mode.
@@ -174,15 +177,13 @@ export default function InboxScreen() {
     return conversations.filter((c) => {
       if (filter === "all") return true;
       if (filter === "needs") return c.status === "needs_human";
+      if (filter === "orders") return c.orders?.some((o) => o.status === "pending");
       return c.channel_connections?.channel === filter;
     });
   }, [conversations, filter]);
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
   const needsCount = conversations.filter((c) => c.status === "needs_human").length;
-  const aiCount = conversations.filter(
-    (c) => c.messages[0]?.sender_type === "ai" && c.messages[0]?.status === "sent",
-  ).length;
   const pendingDraft = messages.find((m) => m.status === "draft_pending") ?? null;
   const pendingOrder = orders.find((o) => o.status === "pending") ?? null;
   // The judgment shown is the one for the customer's most recent message —
@@ -203,7 +204,7 @@ export default function InboxScreen() {
       if (!res.ok) {
         showToast(data.error ? `Could not update order: ${data.error}` : "Could not update order");
       } else {
-        showToast(status === "confirmed" ? `Order confirmed — ${displayName(selected)} has been told` : "Order cancelled — customer notified");
+        showToast(status === "confirmed" ? `Order confirmed. ${displayName(selected)} has been told.` : "Order cancelled. The customer has been told.");
       }
       await Promise.all([loadMessages(selected.id), loadInbox()]);
     } finally {
@@ -246,7 +247,7 @@ export default function InboxScreen() {
       if (!res.ok) {
         showToast(data.error ? `Send failed: ${data.error}` : "Send failed");
       } else {
-        showToast(`Sent to ${displayName(selected)} — Maya keeps watching this thread`);
+        showToast(`Sent to ${displayName(selected)}`);
       }
       await Promise.all([loadMessages(selected.id), loadInbox()]);
     } finally {
@@ -272,67 +273,83 @@ export default function InboxScreen() {
     return (
       <section className="screen">
         <div className="empty">
-          <svg viewBox="0 0 24 24">
-            <path d="M22 12h-6l-2 3h-4l-2-3H2" />
-            <path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1z" />
-          </svg>
+          <div className="empty-ico">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M3 5v14a9 3 0 0 0 18 0V5" />
+              <path d="M3 12a9 3 0 0 0 18 0" />
+            </svg>
+          </div>
           <div className="big">Connect Supabase to open your inbox</div>
           <div className="fine">
-            Copy <code>.env.example</code> to <code>.env.local</code>, fill in your
-            Supabase URL and keys, run the migration in{" "}
-            <code>supabase/migrations</code>, then restart the dev server. The full
-            walkthrough lives in <code>SETUP.md</code>.
+            Copy <code>.env.example</code> to <code>.env.local</code>, add your Supabase
+            URL and keys, run the migrations in <code>supabase/migrations</code>, then
+            restart the dev server. <code>SETUP.md</code> has the full walkthrough.
           </div>
         </div>
       </section>
     );
   }
 
+  const FILTERS: [Filter, string][] = [
+    ["all", "All"],
+    ["needs", "Needs you"],
+    ["orders", "Orders"],
+  ];
+
   return (
     <section className="screen">
       {/* ── conversation list ── */}
       <div className="col-list">
         <div className="list-head">
-          <div className="page-title">Inbox</div>
-          <div className="h-sub">All channels · One current</div>
-          {conversations.length > 0 && (
-            <div className="digest">
-              <span className="dot" />
-              <span>
-                <b>{conversations.length}</b> conversation
-                {conversations.length === 1 ? "" : "s"} · {aiCount} Maya-replied ·{" "}
-                {needsCount} need you
+          <div className="list-head-row">
+            <h1 className="page-title">Inbox</h1>
+            {conversations.length > 0 && (
+              <span className="list-count num">
+                {conversations.length} {conversations.length === 1 ? "chat" : "chats"}
               </span>
-            </div>
-          )}
+            )}
+          </div>
+          <div className="h-sub">
+            {conversations.length === 0
+              ? "Instagram, WhatsApp and Facebook in one place"
+              : needsCount > 0
+                ? `${needsCount} ${needsCount === 1 ? "needs" : "need"} your reply`
+                : "Maya has everything handled"}
+          </div>
         </div>
-        <div className="chips">
-          {(
-            [
-              ["all", "All"],
-              ["whatsapp", "WhatsApp"],
-              ["instagram", "Instagram"],
-              ["messenger", "Facebook"],
-              ["needs", "Needs you"],
-            ] as [Filter, string][]
-          ).map(([value, label]) => (
+        <div className="chips" role="tablist" aria-label="Filter conversations">
+          {FILTERS.map(([value, label]) => (
             <button
               key={value}
+              role="tab"
+              aria-selected={filter === value}
               className={`chip ${filter === value ? "active" : ""}`}
               onClick={() => setFilter(value)}
             >
               {label}
+              {value === "needs" && needsCount > 0 && (
+                <span className="chip-count">{needsCount}</span>
+              )}
             </button>
           ))}
         </div>
         <div className="convos">
           {visible.length === 0 ? (
             <div className="empty">
-              <div className="big">Quiet in here</div>
+              <div className="empty-ico">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+                  <path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1z" />
+                </svg>
+              </div>
+              <div className="big">
+                {conversations.length === 0 ? "No messages yet" : "Nothing here"}
+              </div>
               <div className="fine">
                 {conversations.length === 0
-                  ? "No conversations yet. Connect Instagram on the Channels page and send your test account a DM — it will land here."
-                  : "Nothing matches this filter."}
+                  ? "New DMs from your connected channels will appear here."
+                  : "No conversations match this filter."}
               </div>
             </div>
           ) : (
@@ -340,10 +357,12 @@ export default function InboxScreen() {
               const ch = conv.channel_connections?.channel ?? "instagram";
               const last = conv.messages[0];
               const m = mood(conv);
+              const pending = conv.orders?.some((o) => o.status === "pending");
               return (
                 <button
                   key={conv.id}
                   className={`convo ${conv.id === selectedId ? "sel" : ""}`}
+                  aria-current={conv.id === selectedId ? "true" : undefined}
                   onClick={() => {
                     if (conv.id !== selectedId) {
                       setMessages([]);
@@ -354,7 +373,7 @@ export default function InboxScreen() {
                 >
                   <div className="ava">
                     {initials(conv)}
-                    <i className={CHANNEL_DOT[ch]} />
+                    <i className={CHANNEL_DOT[ch]} aria-label={CHANNEL_LABEL[ch]} />
                   </div>
                   <div className="c-body">
                     <div className="c-top">
@@ -364,16 +383,16 @@ export default function InboxScreen() {
                       </span>
                     </div>
                     <div className="c-snip">{last?.body ?? "…"}</div>
-                    {m && <span className={`tag ${m.cls}`}>{m.label}</span>}
-                    {conv.orders?.some((o) => o.status === "pending") ? (
-                      <span className="tag order">🧾 Order to confirm</span>
-                    ) : conv.status === "needs_human" ? (
-                      <span className="tag needs">⚠ Needs you</span>
-                    ) : last?.sender_type === "ai" ? (
-                      <span className="tag maya">✓ Maya replied</span>
-                    ) : last?.sender_type === "human" ? (
-                      <span className="tag you">You replied</span>
-                    ) : null}
+                    {(pending || conv.status === "needs_human" || m) && (
+                      <div className="c-tags">
+                        {pending ? (
+                          <span className="pill amber">Order to confirm</span>
+                        ) : conv.status === "needs_human" ? (
+                          <span className="pill amber">Needs you</span>
+                        ) : null}
+                        {m && <span className={`pill ${m.cls}`}>{m.label}</span>}
+                      </div>
+                    )}
                   </div>
                 </button>
               );
@@ -386,25 +405,22 @@ export default function InboxScreen() {
       <div className="col-thread">
         {!selected ? (
           <div className="empty">
-            <svg viewBox="0 0 24 24">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            <div className="big">Pick a conversation</div>
+            <div className="empty-ico">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+            <div className="big">Select a conversation</div>
             <div className="fine">
-              Threads from Instagram, WhatsApp and Facebook open here — with
-              Maya&apos;s drafts held for your approval when she isn&apos;t sure.
+              Maya answers what she can. Anything she isn&rsquo;t sure about waits here for you.
             </div>
           </div>
         ) : (
           <>
             <div className="t-head">
-              <div className="ava" style={{ width: 40, height: 40 }}>
+              <div className="ava">
                 {initials(selected)}
-                <i
-                  className={
-                    CHANNEL_DOT[selected.channel_connections?.channel ?? "instagram"]
-                  }
-                />
+                <i className={CHANNEL_DOT[selected.channel_connections?.channel ?? "instagram"]} />
               </div>
               <div>
                 <div className="t-name">{displayName(selected)}</div>
@@ -412,92 +428,100 @@ export default function InboxScreen() {
                   <span
                     className="ch-ico"
                     style={{
-                      background:
-                        CHANNEL_COLOR[
-                          selected.channel_connections?.channel ?? "instagram"
-                        ],
+                      background: CHANNEL_COLOR[selected.channel_connections?.channel ?? "instagram"],
                     }}
                   />
                   {CHANNEL_LABEL[selected.channel_connections?.channel ?? "instagram"]}
-                  {" · "}
-                  {selected.status === "needs_human"
-                    ? "Needs you"
-                    : selected.status === "resolved"
-                      ? "Resolved"
-                      : "Open"}
+                  {selected.status === "needs_human" && " · Needs you"}
+                  {selected.status === "resolved" && " · Resolved"}
                 </div>
               </div>
               <div className="t-actions">
                 <button
+                  role="switch"
+                  aria-checked={selected.ai_enabled}
                   className={`maya-toggle ${selected.ai_enabled ? "" : "off"}`}
                   onClick={() =>
                     patchConversation(
                       { ai_enabled: !selected.ai_enabled },
-                      selected.ai_enabled
-                        ? "Maya paused for this thread"
-                        : "Maya back on for this thread",
+                      selected.ai_enabled ? "Maya paused for this chat" : "Maya is back on for this chat",
                     )
                   }
                 >
-                  MAYA {selected.ai_enabled ? "ON" : "OFF"} <span className="switch" />
+                  Maya <span className="switch" aria-hidden="true" />
                 </button>
               </div>
             </div>
 
-            <div className="thread" ref={threadRef}>
-              {messages.length === 0 && (
-                <div className="day">Loading conversation…</div>
-              )}
+            <div className="thread" ref={threadRef} aria-live="polite">
+              {messages.length === 0 && <div className="day">Loading conversation…</div>}
               {messages.map((m) =>
                 m.status === "draft_pending" ? (
                   <div className="draft" key={m.id}>
                     <div className="draft-tag">
-                      ◔ DRAFTED BY MAYA · HELD FOR APPROVAL
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 2" />
+                      </svg>
+                      Maya drafted this and is waiting for you
                     </div>
                     <div className="draft-bubble">{m.body}</div>
                     {(m.ai_sources?.length ?? 0) > 0 && (
                       <div className="draft-src">
-                        SOURCES{" "}
+                        From your knowledge
                         {(m.ai_sources as AiSource[]).slice(0, 2).map((s, i) => (
                           <span className="src-chip" key={i}>
-                            Brand doc · {Math.round(s.similarity * 100)}% match
+                            {Math.round(s.similarity * 100)}% match
                           </span>
                         ))}
                       </div>
                     )}
                     <div className="draft-actions">
-                      <button
-                        className="btn primary"
-                        disabled={busy}
-                        onClick={() => approveDraft(m.id)}
-                      >
-                        Approve &amp; send
+                      <button className="btn primary" disabled={busy} onClick={() => approveDraft(m.id)}>
+                        Send Draft
                       </button>
-                      <button
-                        className="btn ghost"
-                        onClick={() => setComposerText(m.body)}
-                      >
+                      <button className="btn ghost" onClick={() => setComposerText(m.body)}>
                         Edit
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div key={m.id} style={{ display: "contents" }}>
-                    {m.sender_type === "ai" && m.status === "sent" && (
-                      <div className="sentline">✓ MAYA · AUTO-SENT</div>
+                  <div key={m.id} className={`m-group ${m.direction === "inbound" ? "in" : "out"}`}>
+                    {m.direction !== "inbound" && (
+                      <div className="m-who">
+                        {m.sender_type === "ai" ? (
+                          <>
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z" />
+                            </svg>
+                            Maya
+                          </>
+                        ) : (
+                          "You"
+                        )}
+                      </div>
                     )}
-                    <div
-                      className={`msg ${m.direction === "inbound" ? "in" : "out"} ${
-                        m.status === "failed" ? "failed" : ""
-                      }`}
-                    >
-                      {m.body}
-                    </div>
-                    <div
-                      className={`stamp ${m.direction === "inbound" ? "" : "right"}`}
-                    >
+                    {ATTACHMENT_BODY.test(m.body) ? (
+                      <div className="msg-media">
+                        <span className="msg-media-ico" aria-hidden="true">
+                          <svg viewBox="0 0 24 24">
+                            <path d="M8 5.5v13l11-6.5z" />
+                          </svg>
+                        </span>
+                        {m.body}
+                      </div>
+                    ) : (
+                      <div
+                        className={`msg ${m.direction === "inbound" ? "in" : "out"} ${
+                          m.status === "failed" ? "failed" : ""
+                        }`}
+                      >
+                        {m.body}
+                      </div>
+                    )}
+                    <div className="stamp">
                       {formatTime(m.created_at)}
-                      {m.status === "failed" ? " · failed to send" : ""}
+                      {m.status === "failed" ? " · Not delivered" : ""}
                     </div>
                   </div>
                 ),
@@ -505,64 +529,64 @@ export default function InboxScreen() {
             </div>
 
             <div className="composer">
-              <input
-                type="text"
-                placeholder="Reply as yourself — Maya steps aside when you type…"
-                value={composerText}
-                onChange={(e) => setComposerText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") sendReply();
-                }}
-              />
-              <button
-                className="send"
-                aria-label="Send"
-                disabled={busy || !composerText.trim()}
-                onClick={sendReply}
-              >
-                <svg viewBox="0 0 24 24">
-                  <path d="m22 2-7 20-4-9-9-4z" />
-                  <path d="M22 2 11 13" />
-                </svg>
-              </button>
+              <div className="composer-box">
+                <input
+                  type="text"
+                  name="reply"
+                  autoComplete="off"
+                  aria-label="Reply"
+                  placeholder="Reply as yourself…"
+                  value={composerText}
+                  onChange={(e) => setComposerText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") sendReply();
+                  }}
+                />
+                <button
+                  className="send"
+                  aria-label="Send reply"
+                  disabled={busy || !composerText.trim()}
+                  onClick={sendReply}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 19V5" />
+                    <path d="m5 12 7-7 7 7" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </>
         )}
       </div>
 
       {/* ── context panel ── */}
-      <aside className="col-ctx">
+      <aside className="col-ctx" aria-label="Conversation details">
         {!selected ? (
-          <div className="ctx-card">
-            <div className="ctx-label">Context</div>
-            <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>
-              Customer details, Maya&apos;s sources and her confidence appear here
-              once you open a conversation.
-            </div>
+          <div className="ctx-sec">
+            <div className="ctx-label">Details</div>
+            <p className="ctx-note">
+              Open a conversation to see the customer, any orders Maya booked and how she read
+              their last message.
+            </p>
           </div>
         ) : (
           <>
-            <div className="ctx-card">
-              <div className="ctx-label">Customer</div>
+            <div className="ctx-sec">
               <div className="cust">
-                <div className="ava" style={{ width: 46, height: 46 }}>
+                <div className="ava lg">
                   {initials(selected)}
-                  <i
-                    className={
-                      CHANNEL_DOT[selected.channel_connections?.channel ?? "instagram"]
-                    }
-                  />
+                  <i className={CHANNEL_DOT[selected.channel_connections?.channel ?? "instagram"]} />
                 </div>
                 <div>
                   <div className="cust-name">{displayName(selected)}</div>
                   <div className="cust-meta">
-                    ID ·{selected.external_customer_id.slice(-8)}
+                    {CHANNEL_LABEL[selected.channel_connections?.channel ?? "instagram"]} customer
                   </div>
                 </div>
               </div>
-              <div style={{ marginTop: 14 }}>
+              <div className="kvs">
                 <div className="kv">
-                  <span className="k">First seen</span>
+                  <span className="k">First message</span>
                   <b>{formatTime(selected.created_at)}</b>
                 </div>
                 <div className="kv">
@@ -576,52 +600,29 @@ export default function InboxScreen() {
               </div>
             </div>
 
-            {latestTriage && (
-              <div className="ctx-card">
-                <div className="ctx-label">How this message reads</div>
-                <span className="mood-intent">
-                  {INTENT_LABEL[latestTriage.intent] ?? latestTriage.intent} ·{" "}
-                  {Math.round(latestTriage.intentConfidence * 100)}%
-                </span>
-                <div className="mood-row">
-                  <span>FRUSTRATION</span>
-                  <b>{latestTriage.frustration.toFixed(2)} / 2</b>
-                </div>
-                <div className="mood-bar heat">
-                  <i style={{ width: `${Math.round((latestTriage.frustration / 2) * 100)}%` }} />
-                </div>
-                <div className="mood-row">
-                  <span>WARMTH</span>
-                  <b>{latestTriage.warmth.toFixed(2)} / 2</b>
-                </div>
-                <div className="mood-bar warm">
-                  <i style={{ width: `${Math.round((latestTriage.warmth / 2) * 100)}%` }} />
-                </div>
-                <div className="mood-row">
-                  <span>OWNER SHOULD ANSWER</span>
-                  <b>{Math.round(latestTriage.needsHuman * 100)}%</b>
-                </div>
-                <div className="pg" style={{ marginTop: 10 }}>
-                  {latestTriage.model} · {latestTriage.tokens} tokens · {latestTriage.latencyMs}ms
-                </div>
-              </div>
-            )}
-
             {orders.length > 0 && (
-              <div className="ctx-card">
+              <div className="ctx-sec">
                 <div className="ctx-label">
-                  {pendingOrder ? "Order booked by Maya · needs your OK" : "Orders"}
+                  {pendingOrder ? "Booked by Maya, waiting for you" : "Orders"}
                 </div>
                 {orders.slice(0, 3).map((o) => (
-                  <div className="order" key={o.id}>
+                  <div className={`order-card ${o.status === "pending" ? "pending" : ""}`} key={o.id}>
                     <div className="order-top">
-                      <b>#{o.order_number}</b>
-                      <span className={`order-status ${o.status}`}>{o.status}</span>
+                      <span className="order-no">Order #{o.order_number}</span>
+                      <span
+                        className={`pill ${
+                          o.status === "pending" ? "amber" : o.status === "confirmed" ? "green" : ""
+                        }`}
+                      >
+                        {o.status === "pending" ? "To confirm" : o.status === "confirmed" ? "Confirmed" : "Cancelled"}
+                      </span>
                     </div>
                     {(o.items as OrderItem[]).map((it, i) => (
                       <div className="order-line" key={i}>
                         <span>
-                          {it.name} <span className="pg">{it.sku}</span> × {it.quantity}
+                          {it.name}
+                          <span className="sku">{it.sku}</span>
+                          {it.quantity > 1 && <span className="sku">×{it.quantity}</span>}
                         </span>
                         <b>{npr(it.unit_price * it.quantity)}</b>
                       </div>
@@ -631,16 +632,25 @@ export default function InboxScreen() {
                       <b>{npr(Number(o.total))}</b>
                     </div>
                     {(o.delivery_address || o.phone) && (
-                      <div className="pg" style={{ marginTop: 6 }}>
-                        {[o.delivery_address, o.phone].filter(Boolean).join(" · ")}
+                      <div className="order-ship">
+                        {o.delivery_address && <span>{o.delivery_address}</span>}
+                        {o.phone && <span className="num">{o.phone}</span>}
                       </div>
                     )}
                     {o.status === "pending" && (
-                      <div className="draft-actions" style={{ marginTop: 10 }}>
-                        <button className="btn primary" disabled={busy} onClick={() => decideOrder(o.id, "confirmed")}>
-                          Confirm order
+                      <div className="order-actions">
+                        <button
+                          className="btn primary block"
+                          disabled={busy}
+                          onClick={() => decideOrder(o.id, "confirmed")}
+                        >
+                          Confirm Order
                         </button>
-                        <button className="btn ghost" disabled={busy} onClick={() => decideOrder(o.id, "cancelled")}>
+                        <button
+                          className="btn ghost"
+                          disabled={busy}
+                          onClick={() => decideOrder(o.id, "cancelled")}
+                        >
                           Cancel
                         </button>
                       </div>
@@ -651,84 +661,100 @@ export default function InboxScreen() {
             )}
 
             {pendingDraft && (
-              <div className="ctx-card">
-                <div className="ctx-label">Why Maya held this one</div>
+              <div className="ctx-sec">
+                <div className="ctx-label">Why Maya held this</div>
                 <div className="srcs">
                   <div className="src-row">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M12 9v4" />
-                      <path d="M12 17h.01" />
-                      <circle cx="12" cy="12" r="10" />
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 8v4" />
+                      <path d="M12 16h.01" />
                     </svg>
                     <div>
-                      Confidence below the auto-send bar, or the message touched
-                      money, complaints or something outside the brand documents.
-                      <div className="pg">rule: unsure or sensitive → hold</div>
+                      Discounts, complaints and anything she isn&rsquo;t sure about always go to
+                      you first.
                     </div>
                   </div>
-                  {(pendingDraft.ai_sources as AiSource[] | null)
-                    ?.slice(0, 2)
-                    .map((s, i) => (
-                      <div className="src-row" key={i}>
-                        <svg viewBox="0 0 24 24">
-                          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-                        </svg>
-                        <div>
-                          {s.excerpt.slice(0, 70)}…
-                          <div className="pg">brand doc</div>
-                        </div>
-                      </div>
-                    ))}
                 </div>
                 {pendingDraft.ai_confidence !== null && (
                   <div className="conf">
                     <div className="conf-row">
-                      <span>DRAFT CONFIDENCE</span>
+                      <span>Draft confidence</span>
                       <b>{Math.round(pendingDraft.ai_confidence * 100)}%</b>
                     </div>
                     <div className="conf-bar">
-                      <i
-                        style={{
-                          width: `${Math.round(pendingDraft.ai_confidence * 100)}%`,
-                        }}
-                      />
+                      <i style={{ width: `${Math.round(pendingDraft.ai_confidence * 100)}%` }} />
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            <div className="ctx-card">
-              <div className="ctx-label">Quick actions</div>
+            {latestTriage && (
+              <div className="ctx-sec">
+                <div className="ctx-label">Last message</div>
+                <div className="sig-intent">
+                  {INTENT_LABEL[latestTriage.intent] ?? latestTriage.intent}
+                  <span>{Math.round(latestTriage.intentConfidence * 100)}% sure</span>
+                </div>
+                <div className="mood-row">
+                  <span>Frustration</span>
+                  <b>{Math.round((latestTriage.frustration / 2) * 100)}%</b>
+                </div>
+                <div className="mood-bar heat">
+                  <i style={{ width: `${Math.max(2, Math.round((latestTriage.frustration / 2) * 100))}%` }} />
+                </div>
+                <div className="mood-row">
+                  <span>Warmth</span>
+                  <b>{Math.round((latestTriage.warmth / 2) * 100)}%</b>
+                </div>
+                <div className="mood-bar warm">
+                  <i style={{ width: `${Math.max(2, Math.round((latestTriage.warmth / 2) * 100))}%` }} />
+                </div>
+                <div className="mood-row">
+                  <span>Owner should answer</span>
+                  <b>{Math.round(latestTriage.needsHuman * 100)}%</b>
+                </div>
+                <div className="mood-bar human">
+                  <i style={{ width: `${Math.max(2, Math.round(latestTriage.needsHuman * 100))}%` }} />
+                </div>
+                <div className="sig-foot">
+                  {latestTriage.model} · {latestTriage.latencyMs}ms
+                </div>
+              </div>
+            )}
+
+            <div className="ctx-sec">
+              <div className="ctx-label">Actions</div>
               <div className="qa">
-                <button
-                  onClick={() =>
-                    patchConversation({ status: "resolved" }, "Marked handled")
-                  }
-                >
-                  ✓ &nbsp;Mark handled
+                <button onClick={() => patchConversation({ status: "resolved" }, "Marked as handled")}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  Mark as Handled
                 </button>
                 <button
                   onClick={() =>
-                    patchConversation(
-                      { ai_enabled: false },
-                      "You've taken over — Maya paused here",
-                    )
+                    patchConversation({ ai_enabled: false }, "You have taken over. Maya is paused here.")
                   }
                 >
-                  👤 &nbsp;Take over — pause Maya here
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M4 21a8 8 0 0 1 16 0" />
+                  </svg>
+                  Take Over This Chat
                 </button>
                 <button
                   className="warn"
                   onClick={() =>
-                    patchConversation(
-                      { ai_enabled: false },
-                      "Maya will never auto-reply to this customer",
-                    )
+                    patchConversation({ ai_enabled: false }, "Maya won't auto-reply to this customer")
                   }
                 >
-                  ✕ &nbsp;Never auto-reply to this customer
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="m5.6 5.6 12.8 12.8" />
+                  </svg>
+                  Never Auto-reply Here
                 </button>
               </div>
             </div>
@@ -736,7 +762,12 @@ export default function InboxScreen() {
         )}
       </aside>
 
-      <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
+      <div className={`toast ${toast ? "show" : ""}`} role="status" aria-live="polite">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+        {toast}
+      </div>
     </section>
   );
 }

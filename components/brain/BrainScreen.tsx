@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DocChunk, DocumentRow } from "@/lib/types";
 
 const STATE_LABEL: Record<DocumentRow["status"], string> = {
-  processing: "PROCESSING",
-  ready: "READY",
-  failed: "FAILED",
+  processing: "Processing",
+  ready: "Ready",
+  failed: "Failed",
 };
 
 export default function BrainScreen() {
@@ -74,7 +74,7 @@ export default function BrainScreen() {
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
           </svg>
-          <div className="big">Maya&apos;s Brain needs Supabase</div>
+          <div className="big">Knowledge needs Supabase</div>
           <div className="fine">
             Documents are stored in a Supabase bucket and indexed with pgvector.
             Copy <code>.env.example</code> to <code>.env.local</code>, add your keys
@@ -90,21 +90,16 @@ export default function BrainScreen() {
       <div className="kn">
         <div className="kn-head">
           <div>
-            <div className="page-title">Maya&apos;s Brain</div>
-            <div className="h-sub">What she knows · How she sounds</div>
+            <h1 className="page-title">Knowledge</h1>
+            <div className="h-sub">What Maya knows about your shop, and how she sounds</div>
           </div>
           <div className="meter-wrap">
-            <div style={{ textAlign: "right" }}>
-              <div className="ctx-label" style={{ marginBottom: 4 }}>
-                Indexed knowledge
-              </div>
-              <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-                passages Maya can answer from,
-                <br />
-                across {readyDocs.length} document{readyDocs.length === 1 ? "" : "s"}
-              </div>
-            </div>
             <div className="meter-num">{totalChunks}</div>
+            <div className="meter-label">
+              passages Maya can answer from
+              <br />
+              across {readyDocs.length} document{readyDocs.length === 1 ? "" : "s"}
+            </div>
           </div>
         </div>
 
@@ -177,7 +172,7 @@ export default function BrainScreen() {
                 </div>
                 <div className={`doc-state ${doc.status}`}>
                   {doc.status === "ready" && doc.chunk_count
-                    ? `${doc.chunk_count} PASSAGES`
+                    ? `${doc.chunk_count} passages`
                     : STATE_LABEL[doc.status]}
                 </div>
               </div>
@@ -188,7 +183,7 @@ export default function BrainScreen() {
             <div className="panel">
               <div className="panel-title">What Maya learned from your documents</div>
               <div className="panel-sub">
-                Indexed automatically — every reply cites the passages it used.
+                Indexed automatically. Every reply cites the passages it used.
               </div>
               {chunks.length === 0 ? (
                 <div className="know-row">
@@ -226,11 +221,11 @@ export default function BrainScreen() {
                 one aside for you? You can pick up anytime before 7.&rdquo;
               </div>
               <div className="tone-chips">
-                <span>NEPALI + ENGLISH MIX</span>
-                <span>WARM · INFORMAL</span>
-                <span>USES 🙏</span>
-                <span>SHORT SENTENCES</span>
-                <span>NEVER PUSHY</span>
+                <span>Nepali and English mix</span>
+                <span>Warm, informal</span>
+                <span>Uses 🙏</span>
+                <span>Short sentences</span>
+                <span>Never pushy</span>
               </div>
             </div>
           </div>

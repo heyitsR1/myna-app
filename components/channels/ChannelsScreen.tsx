@@ -63,7 +63,7 @@ export default function ChannelsScreen() {
     <section className="screen">
       <div className="ch">
         <div>
-          <div className="page-title">Channels</div>
+          <h1 className="page-title">Channels</h1>
           <div className="h-sub">Every doorway to your shop · One inbox</div>
         </div>
 
@@ -104,21 +104,19 @@ export default function ChannelsScreen() {
                     </div>
                   </div>
                   <span className={`ch-state ${connected ? "ok" : "off"}`}>
-                    {connected ? "CONNECTED" : "NOT CONNECTED"}
+                    {connected ? "Connected" : "Not connected"}
                   </span>
                 </div>
                 <div className="ch-info">{meta.info}</div>
                 <div className="ch-foot">
                   {conn ? (
                     <>
-                      <span className="ok-dot" /> FIRST MESSAGE{" "}
-                      {new Date(conn.created_at)
-                        .toLocaleDateString([], { month: "short", day: "numeric" })
-                        .toUpperCase()}
+                      <span className="ok-dot" /> First message{" "}
+                      {new Date(conn.created_at).toLocaleDateString([], { month: "short", day: "numeric" })}
                     </>
                   ) : envReady ? (
                     <>
-                      <span className="ok-dot" /> ENV TOKEN SET · WAITING FOR FIRST DM
+                      <span className="ok-dot" /> Token set, waiting for the first DM
                     </>
                   ) : (
                     ENV_HINT[channel]
@@ -130,19 +128,19 @@ export default function ChannelsScreen() {
 
           <div className="ch-card">
             <div className="ch-top">
-              <div className="ch-dot" style={{ background: "var(--slate)" }}>
+              <div className="ch-dot" style={{ background: "var(--ink)" }}>
                 T
               </div>
               <div>
                 <div className="ch-name">TikTok</div>
                 <div className="ch-handle">—</div>
               </div>
-              <span className="ch-state soon">COMING SOON</span>
+              <span className="ch-state soon">Coming soon</span>
             </div>
             <div className="ch-info">
               TikTok Shop messages. On the roadmap once the core three are solid.
             </div>
-            <div className="ch-foot">NOTIFY ME WHEN LIVE</div>
+            <div className="ch-foot">Not available yet</div>
           </div>
 
           <div className="ch-card">
@@ -154,15 +152,15 @@ export default function ChannelsScreen() {
                 <div className="ch-name">Viber</div>
                 <div className="ch-handle">—</div>
               </div>
-              <span className="ch-state soon">COMING SOON</span>
+              <span className="ch-state soon">Coming soon</span>
             </div>
             <div className="ch-info">
               Still big with older customers in Nepal. Planned after TikTok.
             </div>
-            <div className="ch-foot">NOTIFY ME WHEN LIVE</div>
+            <div className="ch-foot">Not available yet</div>
           </div>
 
-          <div className="ch-card" style={{ borderStyle: "dashed", background: "transparent" }}>
+          <div className="ch-card ghost">
             <div className="ch-top">
               <div
                 className="ch-dot"
