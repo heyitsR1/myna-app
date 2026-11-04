@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Myna
 
-## Getting Started
+A unified inbox for Instagram, Facebook Messenger and WhatsApp DMs, plus an AI
+assistant called **Maya**. Maya answers customers from an uploaded brand
+document, shares the product catalogue, and books orders for the owner to
+confirm. It's built for small shops in Nepal (the competitor is sambad.io) as a
+mentorship project.
 
-First, run the development server:
+**Stack:** Next.js 16 (App Router) + Tailwind v4, Supabase (Postgres +
+pgvector + storage), Meta Graph API webhooks, Workers AI (deployed) or Ollama
+(local), TypeSafe Jev for message triage. Deployed on Cloudflare Workers via
+OpenNext at https://myna-app.aarohan567.workers.dev (password-gated).
+
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+cp .env.example .env.local   # or drop in the .env.local you were sent privately
+npm run dev                  # http://localhost:3000 (no password gate locally)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app runs with no keys at all and shows empty states. Each key turns on one
+part of it.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Docs
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- [`SETUP.md`](SETUP.md): every service from scratch (Supabase, Ollama, the Meta
+  app, Messenger, WhatsApp, deploy).
+- [`HANDOFF.md`](HANDOFF.md): a running log of decisions, current state,
+  gotchas and open issues. **Read this before changing anything.**
+- [`AGENTS.md`](AGENTS.md): Next 16 is newer than most training data, so read
+  `node_modules/next/dist/docs/` before writing code.
 
-## Learn More
+## Where things live
 
-To learn more about Next.js, take a look at the following resources:
+| Path | What |
+| --- | --- |
+| `app/(app)/` | `/inbox`, `/brain`, `/channels` screens |
+| `app/(legal)/` | public `/privacy` and `/data-deletion` pages (Meta App Review) |
+| `app/api/webhooks/meta/route.ts` | single webhook for all three channels (HMAC-verified) |
+| `lib/reply.ts` | Maya's pipeline: triage → RAG → intent → send / hold / book |
+| `lib/triage.ts` | TypeSafe Jev judgments + `verdictFor()` hold policy |
+| `lib/llm.ts` | provider switch: Workers AI or Ollama |
+| `lib/meta.ts` | Graph API send paths and token handling |
+| `supabase/migrations/` | schema, applied in order 001 → 004 |
+| `scripts/` | webhook simulator, demo rehearsal, seed, health / LLM switch |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Secrets never go in git. `.env*` is ignored. The deployed app reads Worker
+secrets (`npx wrangler secret list`).

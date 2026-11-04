@@ -402,9 +402,10 @@ export async function generateAndSendReply(
   let bookedOrderId: string | null = null;
 
   if (decision.intent === "catalogue") {
-    const intro = text || "Namaste! 🙏 Here is what we have right now:";
+    // The model's one-line intro sometimes ends in ":," or trails off; normalise it.
+    const intro = (text.split("\n")[0] || "Namaste! Here is what we have right now").replace(/[\s:,;.\-–—]+$/u, "");
     text = products.length
-      ? `${intro}\n\n${formatCatalogue(products)}\n\nReply with the code or name to book one 😊`
+      ? `${intro}:\n\n${formatCatalogue(products)}\n\nReply with the code to book one 😊`
       : `${intro}\n\n(The catalogue is being updated — a team member will share it shortly.)`;
   }
 
@@ -449,10 +450,11 @@ export async function generateAndSendReply(
       !order.phone && "phone number",
     ].filter(Boolean) as string[];
     text =
-      `✅ Order ${sameSku ? "updated" : "booked"} & saved!\n` +
-      `#${order.order_number} · ${product.name} (${product.sku}) × ${quantity} · ${formatNpr(total)}\n\n` +
+      `Order #${order.order_number} ${sameSku ? "updated" : "booked"} ✅\n\n` +
+      `${product.name}\n` +
+      `${product.sku} · Qty ${quantity} · ${formatNpr(total)}\n\n` +
       (missing.length ? `Please send your ${missing.join(" and ")} so we can arrange delivery. ` : "") +
-      `We'll get back to you shortly to confirm the order 🙏`;
+      `We'll confirm it with you shortly 🙏`;
   }
 
   // ── Send ────────────────────────────────────────────────────────────────
