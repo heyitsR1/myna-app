@@ -22,13 +22,15 @@ export async function listProducts(brandId: string): Promise<Product[]> {
 
 /** The catalogue as the customer sees it — one line per item, exact prices. */
 export function formatCatalogue(products: Product[]): string {
+  // Two short lines per item: chat bubbles on a phone are ~30 characters
+  // wide, so one long line per product wraps mid-price. Descriptions stay out
+  // of the list; Maya answers detail questions from the prompt catalogue.
   return products
     .map((p) => {
-      const stock = p.in_stock ? "" : " (out of stock)";
-      const desc = p.description ? ` — ${p.description}` : "";
-      return `${p.sku} · ${p.name}${desc} — ${formatNpr(Number(p.price))}${stock}`;
+      const stock = p.in_stock ? "" : " · out of stock";
+      return `${p.sku}  ${p.name}\n${formatNpr(Number(p.price))}${stock}`;
     })
-    .join("\n");
+    .join("\n\n");
 }
 
 /** The catalogue as Maya sees it in her system prompt. */
@@ -77,4 +79,10 @@ export function orderSummaryLine(order: Pick<Order, "order_number" | "items" | "
     .map((i) => `${i.name} (${i.sku}) × ${i.quantity}`)
     .join(", ");
   return `Order #${order.order_number} · ${items} · ${formatNpr(Number(order.total))}`;
+}
+
+/** The order as a few short lines that read cleanly in a phone chat bubble. */
+export function orderSummaryBlock(order: Pick<Order, "order_number" | "items" | "total">): string {
+  const items = (order.items as OrderItem[]).map((i) => `${i.name} × ${i.quantity}`).join("\n");
+  return `Order #${order.order_number}\n${items}\nTotal ${formatNpr(Number(order.total))}`;
 }

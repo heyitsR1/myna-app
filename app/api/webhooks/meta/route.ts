@@ -76,6 +76,8 @@ interface InboundMessage {
   text: string;
   /** When the platform says it was sent, ISO. Null when absent. */
   sentAt: string | null;
+  /** A photo / video / post with no words. Logged for the owner, never auto-answered. */
+  attachmentOnly?: boolean;
 }
 
 // Instagram + Messenger share the `messaging[]` envelope.
@@ -84,8 +86,25 @@ interface MessagingEvent {
   recipient?: { id?: string };
   /** Milliseconds since epoch. */
   timestamp?: number;
-  message?: { mid?: string; text?: string; is_echo?: boolean };
+  message?: {
+    mid?: string;
+    text?: string;
+    is_echo?: boolean;
+    attachments?: Array<{ type?: string }>;
+  };
 }
+
+/** How an attachment-only DM reads in the inbox and in Maya's history. */
+const ATTACHMENT_LABEL: Record<string, string> = {
+  video: "Shared a video",
+  image: "Shared a photo",
+  audio: "Sent a voice message",
+  file: "Shared a file",
+  share: "Shared a post",
+  ig_reel: "Shared a reel",
+  reel: "Shared a reel",
+  story_mention: "Mentioned you in a story",
+};
 
 // WhatsApp Cloud API uses `changes[].value`.
 interface WhatsAppValue {
@@ -132,7 +151,12 @@ function parseMessagingEvent(channel: Channel, event: MessagingEvent): InboundMe
   const senderId = event.sender?.id;
   const accountId = event.recipient?.id;
   const externalMessageId = event.message?.mid;
-  const text = event.message?.text;
+  const attachmentType = event.message?.attachments?.[0]?.type;
+  const text =
+    event.message?.text ??
+    // Unknown types are dropped: Instagram also sends a "fallback" attachment
+    // when it turns a phone number in a text into a contact card.
+    (attachmentType ? ATTACHMENT_LABEL[attachmentType] : undefined);
   if (!senderId || !accountId || !externalMessageId || !text) return null;
   return {
     channel,
@@ -142,6 +166,7 @@ function parseMessagingEvent(channel: Channel, event: MessagingEvent): InboundMe
     externalMessageId,
     text,
     sentAt: toIso(event.timestamp),
+    attachmentOnly: !event.message?.text,
   };
 }
 
@@ -303,6 +328,10 @@ async function ingest(inbound: InboundMessage): Promise<void> {
         .update({ customer_name: name })
         .eq("id", conversation.id);
     }
+
+    // A shared ad or photo on its own is context, not a question: wait for
+    // the words that usually follow ("kati parcha?") before Maya answers.
+    if (inbound.attachmentOnly) return;
 
     try {
       await generateAndSendReply(conversation.id, message.id);

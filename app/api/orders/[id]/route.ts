@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { envAccountFor, envTokenFor, sendMessage } from "@/lib/meta";
-import { formatNpr, orderSummaryLine } from "@/lib/orders";
+import { orderSummaryBlock } from "@/lib/orders";
 import type { Channel, Order } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -41,8 +41,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const note = body.note?.trim();
   const text =
     body.status === "confirmed"
-      ? `🎉 Your order is confirmed!\n${orderSummaryLine(order as Order)}\n` +
-        `Total ${formatNpr(Number(order.total))}${note ? `\n${note}` : ""}\nDhanyabad for shopping with us 🙏`
+      ? `Your order is confirmed 🎉\n\n${orderSummaryBlock(order as Order)}${note ? `\n\n${note}` : ""}` +
+        `\n\nDhanyabad for shopping with us 🙏`
       : `Sorry, we couldn't confirm order #${order.order_number} this time 🙏${note ? `\n${note}` : ""}` +
         `\nMessage us anytime and we'll help you find something else.`;
 
