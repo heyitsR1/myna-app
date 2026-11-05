@@ -1,7 +1,8 @@
 import { chatJSON, type ChatMessage } from "@/lib/llm";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { retrieveContext, type RetrievedChunk } from "@/lib/rag";
-import { ATTACHMENT_LABEL, envAccountFor, envTokenFor, sendMessage } from "@/lib/meta";
+import { ATTACHMENT_LABEL, envAccountFor, envTokenFor, sendImage, sendMessage } from "@/lib/meta";
+import { claudeEnabled, runMaya, type BookingResult } from "@/lib/agent";
 import {
   catalogueForPrompt,
   formatCatalogue,
@@ -10,7 +11,7 @@ import {
   matchProduct,
 } from "@/lib/orders";
 import { ABUSIVE, DISCOUNT_ASK } from "@/lib/moderation";
-import { describeTriage, triageMessage, verdictFor, type HoldKind } from "@/lib/triage";
+import { describeTriage, triageMessage, verdictFor, type HoldKind, type Triage } from "@/lib/triage";
 import type { AiSource, Message, OrderItem, Product } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -362,6 +363,15 @@ export async function generateAndSendReply(
     ]);
   }
 
+  if (claudeEnabled()) {
+    try {
+      await replyWithClaude({ conversation, inbound, history, chunks, products, triage, pendingOrders, holdForHuman });
+      return;
+    } catch (err) {
+      console.error("[reply] Claude path failed, falling back to Workers AI:", err);
+    }
+  }
+
   const messages: ChatMessage[] = history.map((m) => ({
     role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
     content: m.body,
@@ -622,5 +632,203 @@ export async function generateAndSendReply(
   await supabase
     .from("conversations")
     .update({ status, last_message_at: new Date().toISOString() })
+    .eq("id", conversationId);
+}
+
+// ── Claude path ────────────────────────────────────────────────────────────
+
+const STORE_URL = (process.env.STORE_URL ?? "https://monso.tailsgate.com").replace(/\/$/, "");
+
+function photoUrl(p: Product): string | null {
+  const path = p.image_url ?? (p.slug ? `/products/${p.slug}.jpg` : null);
+  if (!path) return null;
+  return path.startsWith("http") ? path : `${STORE_URL}${path}`;
+}
+
+type Hold = (reason: string, decision?: MayaDecision, sources?: AiSource[], kind?: HoldKind) => Promise<void>;
+
+/**
+ * Same safety floor as the Llama path, minus one rule: "unclear what they
+ * want" no longer holds, because a model that can ask a follow-up question
+ * is the right answer to an unclear message. Abuse, discounts, complaints,
+ * asks for a person and upset customers still go to the owner.
+ */
+function hardHold(body: string, triage: Triage | null): { reason: string; kind: HoldKind } | null {
+  if (ABUSIVE.test(body)) return { reason: "abusive words — no auto-reply", kind: "abuse" };
+  if (DISCOUNT_ASK.test(body)) return { reason: "discount ask — owner decides", kind: "negotiation" };
+  if (triage) {
+    const v = verdictFor(triage);
+    if (v.hold && !v.reason.startsWith("unclear")) return { reason: v.reason, kind: v.kind ?? "judgment" };
+  } else if (SENSITIVE.test(body)) {
+    return { reason: "sensitive words (triage unavailable)", kind: "judgment" };
+  }
+  return null;
+}
+
+async function replyWithClaude(ctx: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  conversation: any;
+  inbound: Message;
+  history: Message[];
+  chunks: RetrievedChunk[];
+  products: Product[];
+  triage: Triage | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  pendingOrders: any[];
+  holdForHuman: Hold;
+}): Promise<void> {
+  const supabase = getSupabaseAdmin()!;
+  const { conversation, inbound, history, chunks, products, triage, pendingOrders, holdForHuman } = ctx;
+  const brand = conversation.brands;
+  const conversationId: string = conversation.id;
+  const sources: AiSource[] = chunks.map((c) => ({
+    document_id: c.document_id,
+    similarity: c.similarity,
+    excerpt: c.content.slice(0, 160),
+  }));
+
+  const hard = hardHold(inbound.body, triage);
+  if (hard) {
+    const draft = hard.kind === "judgment"
+      ? { intent: "handoff" as const, reply: "Thank you for your message 🙏 The owner will reply to you here shortly.", confidence: 1, reason: hard.reason, order_sku: "", order_quantity: 0, customer_name: "", delivery_address: "", phone: "" }
+      : undefined;
+    await holdForHuman(hard.reason, draft, sources, hard.kind);
+    return;
+  }
+
+  const pendingLine = pendingOrders.length
+    ? pendingOrders
+        .map((o) => `#${o.order_number}: ${(o.items as OrderItem[]).map((i) => `${i.sku} ${i.name} ×${i.quantity}`).join(", ")}, total ${formatNpr(Number(o.total))}, address ${o.delivery_address || "missing"}, phone ${o.phone || "missing"}`)
+        .join("; ")
+    : "none";
+
+  const book = async (a: { sku: string; quantity: number; customer_name: string; delivery_address: string; phone: string }): Promise<BookingResult> => {
+    const product = matchProduct(products, a.sku);
+    if (!product) return { ok: false, error: `no product with code ${a.sku}` };
+    if (!product.in_stock) return { ok: false, error: `${product.name} is out of stock` };
+    const quantity = Math.min(20, Math.max(1, a.quantity));
+    const unitPrice = Number(product.price);
+    const items: OrderItem[] = [{ sku: product.sku, name: product.name, quantity, unit_price: unitPrice }];
+    const total = unitPrice * quantity;
+    const same = pendingOrders.find((o) => (o.items as OrderItem[])[0]?.sku === product.sku) ?? null;
+    const fields = {
+      items,
+      total,
+      customer_name: a.customer_name || same?.customer_name || conversation.customer_name || null,
+      delivery_address: a.delivery_address || same?.delivery_address || null,
+      phone: a.phone || same?.phone || null,
+    };
+    const { data: order, error } = same
+      ? await supabase.from("orders").update(fields).eq("id", same.id).select().single()
+      : await supabase
+          .from("orders")
+          .insert({ brand_id: brand.id, conversation_id: conversationId, status: "pending", ...fields })
+          .select()
+          .single();
+    if (error || !order) return { ok: false, error: "could not save the order" };
+    const missing = [!order.delivery_address && "delivery address", !order.phone && "phone number"].filter(Boolean) as string[];
+    return {
+      ok: true,
+      missing,
+      summary: `Order #${order.order_number} ${same ? "updated" : "booked"} ✅\n${product.name}\n${product.sku} · Qty ${quantity} · ${formatNpr(total)}`,
+    };
+  };
+
+  const started = Date.now();
+  const result = await runMaya({
+    brandName: brand.name,
+    toneNotes: brand.tone_notes,
+    chunks,
+    history: history.map((m) => ({ role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const), content: m.body })),
+    pendingOrder: pendingLine,
+    tools: { products, book },
+  });
+  console.log(
+    `[reply] claude ${result.model} ${Date.now() - started}ms turns=${result.turns} photos=${result.photos.map((p) => p.sku).join(",") || "-"} list=${result.showList} booked=${Boolean(result.booking)} handoff=${result.handoff ?? "-"} (${conversationId})`,
+  );
+
+  const decisionLike = (reply: string): MayaDecision => ({
+    intent: "handoff", reply, confidence: 0.9, reason: result.handoff ?? "", order_sku: "", order_quantity: 0, customer_name: "", delivery_address: "", phone: "",
+  });
+
+  if (result.handoff) {
+    await holdForHuman(result.handoff, decisionLike(result.text || "Thank you 🙏 The owner will reply here shortly."), sources, "judgment");
+    return;
+  }
+  if (!conversation.ai_enabled) {
+    await holdForHuman("Maya paused on this thread", decisionLike(result.text), sources);
+    return;
+  }
+
+  let text = result.text;
+  if (result.showList && products.length) {
+    text = `${text.replace(/[\s:,;.\-–—]+$/u, "")}${text ? ":" : ""}\n\n${formatCatalogue(products)}\n\nReply with the code to book one 😊`.trim();
+  }
+  if (result.booking?.summary) text = `${result.booking.summary}\n\n${text}`.trim();
+  if (!text && result.photos.length === 0) {
+    await holdForHuman("Claude returned nothing", undefined, sources);
+    return;
+  }
+
+  // Superseded: a newer text message will be answered with this one in its history.
+  if (!result.booking) {
+    const { data: newer } = await supabase
+      .from("messages")
+      .select("body")
+      .eq("conversation_id", conversationId)
+      .eq("direction", "inbound")
+      .gt("created_at", inbound.created_at)
+      .limit(5);
+    const labels = new Set(Object.values(ATTACHMENT_LABEL));
+    if ((newer ?? []).some((m) => !labels.has(m.body))) {
+      console.log(`[reply] skipped: a newer message in ${conversationId} will be answered instead`);
+      return;
+    }
+  }
+
+  const connection = conversation.channel_connections;
+  const channel = connection?.channel ?? null;
+  const accountId = connection?.external_account_id ?? (channel ? envAccountFor(channel) : null);
+  const accessToken = connection?.access_token ?? (channel ? envTokenFor(channel) : null);
+  if (!channel || !accountId || !accessToken) {
+    await holdForHuman(`no send credentials for channel ${channel ?? "unknown"}`, decisionLike(text), sources);
+    return;
+  }
+
+  let allOk = true;
+  for (const p of result.photos) {
+    const url = photoUrl(p);
+    if (!url) continue;
+    const caption = `${p.sku} ${p.name} · ${formatNpr(Number(p.price))}`;
+    const sent = await sendImage(channel, accountId, conversation.external_customer_id, url, caption, accessToken);
+    allOk &&= sent.ok;
+    await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      direction: "outbound",
+      sender_type: "ai",
+      body: `📷 ${caption}`,
+      external_message_id: sent.messageId ?? null,
+      status: sent.ok ? "sent" : "failed",
+    });
+  }
+
+  if (text) {
+    const sent = await sendMessage(channel, accountId, conversation.external_customer_id, text, accessToken);
+    allOk &&= sent.ok;
+    await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      direction: "outbound",
+      sender_type: "ai",
+      body: text,
+      external_message_id: sent.messageId ?? null,
+      ai_confidence: 0.9,
+      ai_sources: sources,
+      status: sent.ok ? "sent" : "failed",
+    });
+  }
+
+  await supabase
+    .from("conversations")
+    .update({ status: !allOk || result.booking ? "needs_human" : "open", last_message_at: new Date().toISOString() })
     .eq("id", conversationId);
 }

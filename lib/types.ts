@@ -87,6 +87,9 @@ export interface Product {
   in_stock: boolean;
   sort_order: number;
   created_at: string;
+  /** Storefront fields (migration 005); null until the store seeds them. */
+  slug?: string | null;
+  image_url?: string | null;
 }
 
 export interface OrderItem {

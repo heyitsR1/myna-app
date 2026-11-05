@@ -236,3 +236,46 @@ export const ATTACHMENT_LABEL: Record<string, string> = {
   reel: "Shared a reel",
   story_mention: "Mentioned you in a story",
 };
+
+/**
+ * Send one image by public URL. WhatsApp shows `caption` under the photo;
+ * Instagram and Messenger have no captions, so the caption goes as a
+ * follow-up text only when the caller sends one.
+ */
+export async function sendImage(
+  channel: Channel | string | null,
+  accountId: string | null,
+  recipientId: string,
+  imageUrl: string,
+  caption: string,
+  accessToken: string | null,
+): Promise<SendResult> {
+  if (!channel) return { ok: false, error: "conversation has no channel" };
+  const id = accountId ?? envAccountFor(channel as Channel) ?? null;
+  const token = accessToken ?? envTokenFor(channel as Channel) ?? null;
+  if (!id || !token) return { ok: false, error: `missing ${channel} account id or access token` };
+
+  if (channel === "whatsapp") {
+    return post(
+      `${FB_BASE}/${id}/messages`,
+      token,
+      {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: recipientId,
+        type: "image",
+        image: { link: imageUrl, caption },
+      },
+      `WhatsApp image (number ${id})`,
+    );
+  }
+  const message = { attachment: { type: "image", payload: { url: imageUrl } } };
+  return channel === "instagram"
+    ? post(`${IG_BASE}/${id}/messages`, token, { recipient: { id: recipientId }, message }, `Instagram image (account ${id})`)
+    : post(
+        `${FB_BASE}/${id}/messages`,
+        token,
+        { recipient: { id: recipientId }, messaging_type: "RESPONSE", message },
+        `Messenger image (page ${id})`,
+      );
+}
