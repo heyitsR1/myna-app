@@ -1,7 +1,7 @@
 import { chatJSON, type ChatMessage } from "@/lib/llm";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { retrieveContext, type RetrievedChunk } from "@/lib/rag";
-import { envAccountFor, envTokenFor, sendMessage } from "@/lib/meta";
+import { ATTACHMENT_LABEL, envAccountFor, envTokenFor, sendMessage } from "@/lib/meta";
 import {
   catalogueForPrompt,
   formatCatalogue,
@@ -9,8 +9,10 @@ import {
   listProducts,
   matchProduct,
 } from "@/lib/orders";
-import { describeTriage, triageMessage, verdictFor } from "@/lib/triage";
+import { ABUSIVE, DISCOUNT_ASK } from "@/lib/moderation";
+import { describeTriage, triageMessage, verdictFor, type HoldKind } from "@/lib/triage";
 import type { AiSource, Message, OrderItem, Product } from "@/lib/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Maya sends on her own unless the model says a human is needed. The
@@ -122,6 +124,58 @@ const SENSITIVE =
 const PRICE_LIST_ASK =
   /(\b(kati\s*(ho|parch?ha|parcha|parxa|pardaina|ho\s*dam|ma)?|dam\s*kati|mol\s*kati|rate\s*kati|price\s*(list|please|plz|pls)?|prices|rates?|k\s*k\s*(cha|xa|chha)|ke\s*ke\s*(cha|xa|chha)|what\s+do\s+you\s+(sell|have)|collection|catalog(ue)?)\b|कति|मूल्य|के के छ)/i;
 
+/**
+ * Holding lines for the holds where the model must not improvise. On 5 Nov a
+ * "Discount?" was held, but the draft Maya wrote ("prices are fixed, festival
+ * offers") was itself a pricing decision, and the owner approved it on
+ * autopilot. These say only that the owner will answer. `abuse` and
+ * `judgment` have no fixed line: abuse gets no draft, judgment keeps Maya's.
+ */
+const HOLDING_LINE: Partial<Record<HoldKind, string>> = {
+  negotiation: "Good question! Let me check with the owner about the price 🙏 They'll reply here shortly.",
+  complaint: "Sorry about this 🙏 The owner will look into it personally and reply here shortly.",
+  person: "Sure! The owner will reply to you here personally, shortly 🙏",
+};
+
+/**
+ * One pending draft per conversation: a new hold rewrites the existing draft
+ * (and moves it to the bottom of the thread) instead of stacking another.
+ * The partial unique index in 006_one_pending_draft.sql makes this hold when
+ * two webhooks for the same thread race: the losing insert gets 23505 and
+ * falls back to the update.
+ */
+async function upsertPendingDraft(
+  supabase: SupabaseClient,
+  conversationId: string,
+  draft: { body: string; ai_confidence: number | null; ai_sources: AiSource[] | null },
+): Promise<void> {
+  const fields = { ...draft, created_at: new Date().toISOString() };
+  const updateExisting = () =>
+    supabase
+      .from("messages")
+      .update(fields)
+      .eq("conversation_id", conversationId)
+      .eq("status", "draft_pending")
+      .select("id");
+
+  const { data: updated, error: updateError } = await updateExisting();
+  if (updateError) console.error("[reply] draft update failed:", updateError.message);
+  if (updated && updated.length > 0) return;
+
+  const { error } = await supabase.from("messages").insert({
+    conversation_id: conversationId,
+    direction: "outbound",
+    sender_type: "ai",
+    status: "draft_pending",
+    ...fields,
+  });
+  if (error?.code === "23505") {
+    await updateExisting();
+  } else if (error) {
+    console.error("[reply] draft insert failed:", error.message);
+  }
+}
+
 const QUANTITY_CHANGE = /\b(make it|change (it )?to|instead)\b|\b\d+\s*(pairs?|pieces?|pcs|ota|wota)\b/i;
 
 function isBareProductRef(latest: string, lastAssistant: string | null, products: Product[]): Product | null {
@@ -211,20 +265,22 @@ export async function generateAndSendReply(
 
   const brand = conversation.brands;
 
-  const holdForHuman = async (reason: string, decision?: MayaDecision, sources?: AiSource[]) => {
-    if (decision?.reply) {
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        direction: "outbound",
-        sender_type: "ai",
-        body: decision.reply,
-        ai_confidence: decision.confidence,
+  const holdForHuman = async (
+    reason: string,
+    decision?: MayaDecision,
+    sources?: AiSource[],
+    kind: HoldKind = "judgment",
+  ) => {
+    const body = kind === "abuse" ? null : (HOLDING_LINE[kind] ?? decision?.reply ?? null);
+    if (body) {
+      await upsertPendingDraft(supabase, conversationId, {
+        body,
+        ai_confidence: decision?.confidence ?? null,
         ai_sources: sources ?? null,
-        status: "draft_pending",
       });
     }
     await supabase.from("conversations").update({ status: "needs_human" }).eq("id", conversationId);
-    console.log(`[reply] held for human (${conversationId}): ${reason}`);
+    console.log(`[reply] held for human [${kind}] (${conversationId}): ${reason}`);
   };
 
   const lastAssistant = [...history].reverse().find((m) => m.direction === "outbound")?.body ?? null;
@@ -316,10 +372,14 @@ export async function generateAndSendReply(
   // policy; SENSITIVE survives only as the fallback for when TypeSafe is
   // unreachable, which is the one path that still consults it.
   let triageHold: string | null = null;
+  let holdKind: HoldKind = "judgment";
   if (triage) {
     console.log(`[triage] ${describeTriage(triage)} (${conversationId})`);
     const verdict = verdictFor(triage);
-    if (verdict.hold) triageHold = verdict.reason;
+    if (verdict.hold) {
+      triageHold = verdict.reason;
+      holdKind = verdict.kind ?? "judgment";
+    }
 
     // Where the two models disagree about whether this message is a purchase,
     // Jev wins. The chat model drifts toward book_order once a thread contains
@@ -333,11 +393,22 @@ export async function generateAndSendReply(
       console.log("[reply] upgraded → catalogue: Jev read this as a request for the list");
       decision.intent = "catalogue";
     }
-  } else if (decision.intent !== "handoff" && SENSITIVE.test(inbound.body)) {
+  } else if (SENSITIVE.test(inbound.body) || DISCOUNT_ASK.test(inbound.body)) {
     console.log(
       `[reply] forced handoff: sensitive words in "${inbound.body.slice(0, 60)}" (triage unavailable)`,
     );
-    decision.intent = "handoff";
+    triageHold = "sensitive words (triage unavailable)";
+    holdKind = DISCOUNT_ASK.test(inbound.body) ? "negotiation" : "judgment";
+  }
+  // The owner decides discounts, always. Jev read "last price for 2
+  // aviators" as a plain question @0.42, so the phrase list is a floor.
+  if (DISCOUNT_ASK.test(inbound.body) && (!triageHold || holdKind === "judgment")) {
+    triageHold = "discount ask — owner decides";
+    holdKind = "negotiation";
+  }
+  if (ABUSIVE.test(inbound.body) && holdKind !== "abuse") {
+    triageHold = "abusive words — no auto-reply";
+    holdKind = "abuse";
   }
 
   if (
@@ -382,14 +453,15 @@ export async function generateAndSendReply(
     excerpt: c.content.slice(0, 160),
   }));
 
-  if (!conversation.ai_enabled) {
-    await holdForHuman("Maya paused on this thread", decision, sources);
-    return;
-  }
   // Jev's verdict outranks the chat model's own intent: it is a probability
   // over a fixed question rather than a number the writer assigned itself.
+  // It is checked before the pause too, so abuse never becomes a draft.
   if (triageHold) {
-    await holdForHuman(triageHold, decision, sources);
+    await holdForHuman(triageHold, decision, sources, holdKind);
+    return;
+  }
+  if (!conversation.ai_enabled) {
+    await holdForHuman("Maya paused on this thread", decision, sources);
     return;
   }
   if (decision.intent === "handoff" || decision.confidence < CONFIDENCE_FLOOR) {
@@ -455,6 +527,29 @@ export async function generateAndSendReply(
       `${product.sku} · Qty ${quantity} · ${formatNpr(total)}\n\n` +
       (missing.length ? `Please send your ${missing.join(" and ")} so we can arrange delivery. ` : "") +
       `We'll confirm it with you shortly 🙏`;
+  }
+
+  // ── Superseded? ─────────────────────────────────────────────────────────
+  // People send bursts ("hi" / "price?" / "hello??"), and on stage trolls
+  // send ten. Each message runs its own pipeline in parallel, so without this
+  // the thread gets one answer per message, out of order. A plain answer is
+  // skipped when a newer text message has arrived: that message's pipeline
+  // sees this one in its history and answers both. Bookings are never
+  // skipped (the newer message may not repeat the order), and holds already
+  // ran above.
+  if (decision.intent === "answer" || decision.intent === "catalogue") {
+    const { data: newer } = await supabase
+      .from("messages")
+      .select("body")
+      .eq("conversation_id", conversationId)
+      .eq("direction", "inbound")
+      .gt("created_at", inbound.created_at)
+      .limit(5);
+    const attachmentLabels = new Set(Object.values(ATTACHMENT_LABEL));
+    if ((newer ?? []).some((m) => !attachmentLabels.has(m.body))) {
+      console.log(`[reply] skipped: a newer message in ${conversationId} will be answered instead`);
+      return;
+    }
   }
 
   // ── Send ────────────────────────────────────────────────────────────────

@@ -50,6 +50,8 @@ export interface Triage {
   needsHuman: number;
   /** P(they explicitly asked for a human). */
   asksForHuman: number;
+  /** P(the message is abusive, obscene or trolling). Absent on rows stored before 6 Nov. */
+  abusive?: number;
   /** Input+output tokens, for cost tracking during the demo. */
   tokens: number;
   latencyMs: number;
@@ -87,7 +89,7 @@ const QUESTIONS = {
       complaint:
         "Resolve a grievance: a late, wrong, missing or defective order, or a request for a refund, return, or exchange.",
       negotiation:
-        "Respond to a request for a discount, a lower price, or bulk / wholesale pricing.",
+        "Respond to a request for a discount, a lower price, or bulk / wholesale pricing. In Nepal \"last price?\", \"best price?\", \"final price?\", \"kam garnus\", \"sasto\" or \"discount milcha?\" all mean asking for a discount.",
       thanks:
         "Acknowledge thanks, praise, or positive feedback. The customer is not asking for anything new.",
       other:
@@ -114,6 +116,13 @@ const QUESTIONS = {
   asks_for_human: noul(
     "`customer_message` explicitly asks to speak to a person, the owner, or a real human",
   ),
+  // A live audience trolls. Abuse is held with no reply at all, so it gets its
+  // own question rather than hoping frustration catches it: a cheerful insult
+  // scores calm.
+  abusive: noul("`customer_message` is abusive, obscene, a slur, sexual harassment, or obvious trolling", {
+    true: "Insults, swearing at the shop or staff (English or Nepali), sexual remarks, slurs, or nonsense sent only to provoke.",
+    false: "A genuine message, even if blunt, angry about an order, or joking politely.",
+  }),
 } as const;
 
 export interface TriageInput {
@@ -176,6 +185,7 @@ export async function triageMessage(input: TriageInput): Promise<Triage | null> 
     warmth: a.warmth.score,
     needsHuman: a.needs_human.noul,
     asksForHuman: a.asks_for_human.noul,
+    abusive: a.abusive.noul,
     tokens: result.usage.input_tokens + result.usage.output_tokens,
     latencyMs: Date.now() - t0,
     model: result.model,
@@ -191,21 +201,32 @@ export async function triageMessage(input: TriageInput): Promise<Triage | null> 
  * request is a perfectly reasonable judgment — and still not a licence to
  * haggle. So the intent decides, not the number.
  */
+/**
+ * Why a message is held. The kind picks what the owner is offered:
+ * `abuse` gets no draft at all, `negotiation` / `complaint` / `person` get a
+ * fixed holding line (never the model's improvised policy — on 5 Nov it
+ * drafted "prices are fixed" for a discount ask), `judgment` keeps Maya's own
+ * reply as the draft for the owner to check.
+ */
+export type HoldKind = "abuse" | "negotiation" | "complaint" | "person" | "judgment";
+
 export interface TriageVerdict {
   hold: boolean;
+  kind?: HoldKind;
   reason: string;
 }
 
 export function verdictFor(t: Triage): TriageVerdict {
-  if (t.intent === "complaint") return { hold: true, reason: "complaint — owner should answer" };
-  if (t.intent === "negotiation") return { hold: true, reason: "price negotiation — owner decides discounts" };
-  if (t.asksForHuman >= 0.5) return { hold: true, reason: "customer asked for a person" };
-  if (t.frustration >= 1.0) return { hold: true, reason: `customer sounds upset (${t.frustration.toFixed(1)}/2)` };
-  if (t.needsHuman >= 0.6) return { hold: true, reason: `needs a human (p=${t.needsHuman.toFixed(2)})` };
+  if ((t.abusive ?? 0) >= 0.6) return { hold: true, kind: "abuse", reason: `abusive (p=${t.abusive!.toFixed(2)}) — no auto-reply` };
+  if (t.intent === "complaint") return { hold: true, kind: "complaint", reason: "complaint — owner should answer" };
+  if (t.intent === "negotiation") return { hold: true, kind: "negotiation", reason: "price negotiation — owner decides discounts" };
+  if (t.asksForHuman >= 0.5) return { hold: true, kind: "person", reason: "customer asked for a person" };
+  if (t.frustration >= 1.0) return { hold: true, kind: "judgment", reason: `customer sounds upset (${t.frustration.toFixed(1)}/2)` };
+  if (t.needsHuman >= 0.6) return { hold: true, kind: "judgment", reason: `needs a human (p=${t.needsHuman.toFixed(2)})` };
   // A low-confidence intent means Jev could not tell what they wanted. Letting
   // Maya answer anyway is how a thread goes wrong in front of an audience.
   if (t.intentConfidence < 0.5) {
-    return { hold: true, reason: `unclear what they want (${t.intent} @${t.intentConfidence.toFixed(2)})` };
+    return { hold: true, kind: "judgment", reason: `unclear what they want (${t.intent} @${t.intentConfidence.toFixed(2)})` };
   }
   return { hold: false, reason: `${t.intent} @${t.intentConfidence.toFixed(2)}` };
 }
@@ -215,6 +236,6 @@ export function describeTriage(t: Triage): string {
   return (
     `${t.intent}@${t.intentConfidence.toFixed(2)} ` +
     `frust=${t.frustration.toFixed(2)} warmth=${t.warmth.toFixed(2)} ` +
-    `human=${t.needsHuman.toFixed(2)} (${t.tokens}tok ${t.latencyMs}ms)`
+    `human=${t.needsHuman.toFixed(2)} abuse=${(t.abusive ?? 0).toFixed(2)} (${t.tokens}tok ${t.latencyMs}ms)`
   );
 }

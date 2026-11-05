@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOrCreateDefaultBrand } from "@/lib/brand";
 import { generateAndSendReply } from "@/lib/reply";
-import { envTokenFor, fetchCustomerName } from "@/lib/meta";
+import { ATTACHMENT_LABEL, envTokenFor, fetchCustomerName } from "@/lib/meta";
 import type { Channel } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -93,18 +93,6 @@ interface MessagingEvent {
     attachments?: Array<{ type?: string }>;
   };
 }
-
-/** How an attachment-only DM reads in the inbox and in Maya's history. */
-const ATTACHMENT_LABEL: Record<string, string> = {
-  video: "Shared a video",
-  image: "Shared a photo",
-  audio: "Sent a voice message",
-  file: "Shared a file",
-  share: "Shared a post",
-  ig_reel: "Shared a reel",
-  reel: "Shared a reel",
-  story_mention: "Mentioned you in a story",
-};
 
 // WhatsApp Cloud API uses `changes[].value`.
 interface WhatsAppValue {

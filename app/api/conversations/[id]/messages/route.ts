@@ -103,7 +103,12 @@ export async function POST(
     const sent = await sendViaChannel(ctx, draft.body);
     const { data: updated, error } = await supabase
       .from("messages")
-      .update({ status: sent.ok ? "sent" : "failed" })
+      .update({
+        status: sent.ok ? "sent" : "failed",
+        // Meta's id for the delivered message — the only proof it went out.
+        external_message_id: sent.messageId ?? null,
+        created_at: new Date().toISOString(),
+      })
       .eq("id", draft.id)
       .select()
       .single();
@@ -142,6 +147,7 @@ export async function POST(
       direction: "outbound",
       sender_type: "human",
       body: text,
+      external_message_id: sent.messageId ?? null,
       status: sent.ok ? "sent" : "failed",
     })
     .select()

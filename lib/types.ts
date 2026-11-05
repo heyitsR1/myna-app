@@ -107,7 +107,7 @@ export interface Order {
   delivery_address: string | null;
   phone: string | null;
   notes: string | null;
-  status: "pending" | "confirmed" | "cancelled";
+  status: "pending" | "confirmed" | "shipped" | "cancelled";
   created_at: string;
   confirmed_at: string | null;
 }

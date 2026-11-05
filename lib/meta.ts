@@ -224,3 +224,15 @@ export async function refreshInstagramToken(
   const expiresAt = new Date(Date.now() + (data.expires_in ?? 60 * 86400) * 1000).toISOString();
   return { ok: true, token: data.access_token, expiresAt };
 }
+
+/** How an attachment-only DM reads in the inbox and in Maya's history. */
+export const ATTACHMENT_LABEL: Record<string, string> = {
+  video: "Shared a video",
+  image: "Shared a photo",
+  audio: "Sent a voice message",
+  file: "Shared a file",
+  share: "Shared a post",
+  ig_reel: "Shared a reel",
+  reel: "Shared a reel",
+  story_mention: "Mentioned you in a story",
+};
