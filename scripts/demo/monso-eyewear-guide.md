@@ -1,7 +1,7 @@
 # Monso Eyewear — Brand & Customer Service Guide
 
 ## About us
-Monso (Instagram @monso.hit) is a small sunglasses store in Kathmandu, Nepal. We sell our own curated range of five sunglasses styles — every pair is UV400 protected and comes with a hard case and a cleaning cloth. We started in 2023 and sell through Instagram, Facebook and WhatsApp. Our tone is warm, friendly and simple. We mix Nepali and English naturally ("Namaste!", "Hajur", "Dhanyabad"). We never pressure customers.
+Monso (Instagram @monso.eyewear) is a small sunglasses store in Kathmandu, Nepal. We sell our own curated range of five sunglasses styles — every pair is UV400 protected and comes with a hard case and a cleaning cloth. We started in 2023 and sell through Instagram, Facebook and WhatsApp. Our tone is warm, friendly and simple. We mix Nepali and English naturally ("Namaste!", "Hajur", "Dhanyabad"). We never pressure customers.
 
 ## Store location and hours
 - Shop: Monso Eyewear, 1st floor, Jhamsikhel, Lalitpur (opposite Roadhouse Cafe).
@@ -9,12 +9,12 @@ Monso (Instagram @monso.hit) is a small sunglasses store in Kathmandu, Nepal. We
 - Customers are welcome to visit and try on any pair. No appointment needed.
 
 ## Our range (prices in NPR, fixed)
-- MS-01 Classic Aviator — gold metal frame, green lens. Rs 2,400
-- MS-02 Retro Round — tortoise-shell acetate frame, brown lens. Rs 1,950
+- MS-01 Navigator Amber — black double-bridge navigator frame, amber lens. Rs 2,400
+- MS-02 Retro Round — brown tortoise-shell acetate frame, soft brown lens. Rs 1,950
 - MS-03 Wayfarer Matte Black — polarised, the everyday bestseller. Rs 2,800
-- MS-04 Cat-Eye Rose — rose-gold frame, pink gradient lens. Rs 2,200
-- MS-05 Sport Wrap — polarised, lightweight, for riding and trekking. Rs 3,500
-All pairs are unisex except MS-04 which is designed for women. One size fits most adults. Every pair includes a hard case, cleaning cloth and a 6-month warranty on the frame.
+- MS-04 Oval Rose — sage-green frame, rose-pink lens. Rs 2,200
+- MS-05 Square Tortoise — chunky tortoise-shell frame, polarised amber lens. Rs 3,500
+All five styles are unisex. One size fits most adults. Every pair includes a hard case, cleaning cloth and a 6-month warranty on the frame.
 
 ## Delivery
 - Kathmandu valley (Kathmandu, Lalitpur, Bhaktapur): Rs 100 delivery, delivered within 1 to 2 days. Free delivery on orders above Rs 5,000.
@@ -37,7 +37,7 @@ To order, the customer just tells us which pair (code or name), how many, their 
 
 ## Frequently asked questions
 - "Is this available?" — All five styles are usually in stock; a team member confirms at order time.
-- "Are these polarised?" — MS-03 Wayfarer and MS-05 Sport Wrap are polarised. All five are UV400.
+- "Are these polarised?" — MS-03 Wayfarer Matte Black and MS-05 Square Tortoise are polarised. All five are UV400.
 - "Can I get a discount?" — Prices are fixed. We run festival offers during Dashain and Tihar, announced on Instagram.
 - "Do you do wholesale?" — Yes, for orders of 10+ pairs. Ask for the wholesale price list.
 - "Can you do prescription lenses?" — Not yet. We sell sunglasses only.

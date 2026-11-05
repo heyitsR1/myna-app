@@ -49,11 +49,11 @@ await rest(`brands?id=eq.${brand.id}`, {
 console.log(`✓ brand → Monso Eyewear (${brand.id})`);
 
 const products = [
-  ["MS-01", "Classic Aviator", "gold metal frame, green lens, UV400", 2400],
-  ["MS-02", "Retro Round", "tortoise-shell acetate frame, brown lens, UV400", 1950],
+  ["MS-01", "Navigator Amber", "black double-bridge navigator frame, amber lens, UV400", 2400],
+  ["MS-02", "Retro Round", "brown tortoise-shell acetate frame, soft brown lens, UV400", 1950],
   ["MS-03", "Wayfarer Matte Black", "polarised, the everyday bestseller", 2800],
-  ["MS-04", "Cat-Eye Rose", "rose-gold frame, pink gradient lens, for women", 2200],
-  ["MS-05", "Sport Wrap", "polarised, lightweight, for riding and trekking", 3500],
+  ["MS-04", "Oval Rose", "sage-green frame, rose-pink lens, UV400", 2200],
+  ["MS-05", "Square Tortoise", "chunky tortoise-shell frame, polarised amber lens", 3500],
 ].map(([sku, name, description, price], i) => ({ brand_id: brand.id, sku, name, description, price, in_stock: true, sort_order: i + 1 }));
 await rest("products?on_conflict=brand_id,sku", {
   method: "POST",
