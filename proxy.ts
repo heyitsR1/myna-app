@@ -22,6 +22,9 @@ import {
  *  - `/privacy` and `/data-deletion` — Meta's App Review team must be able
  *    to open these without credentials.
  *  - `/login` and `/api/auth/*` — the way in.
+ *  - `/manifest.webmanifest`, `/sw.js`, `/icons/*` — the installable app's
+ *    shell. Browsers fetch the manifest without cookies, so gating it breaks
+ *    "Add to Home Screen". None of them contain data.
  *
  * With BASIC_AUTH_USER / BASIC_AUTH_PASSWORD unset the gate is off, which
  * keeps local `next dev` friction-free.
@@ -60,6 +63,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api/webhooks|api/auth|login|privacy|data-deletion|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/webhooks|api/auth|login|privacy|data-deletion|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons/).*)",
   ],
 };
