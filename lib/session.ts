@@ -27,13 +27,31 @@ export function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB);
 }
 
-/** Compare both halves regardless, so a wrong username costs the same time. */
+/**
+ * Teammates' logins, in addition to the owner's: EXTRA_LOGINS="name:pass;name2:pass2".
+ * Everyone sees the same shop; sessions are signed with the owner's password.
+ */
+function extraLogins(): { user: string; password: string }[] {
+  return (process.env.EXTRA_LOGINS ?? "")
+    .split(";")
+    .map((pair) => {
+      const i = pair.indexOf(":");
+      return i > 0 ? { user: pair.slice(0, i).trim(), password: pair.slice(i + 1).trim() } : null;
+    })
+    .filter((x): x is { user: string; password: string } => Boolean(x?.user && x.password));
+}
+
+/** Compare both halves of every login regardless, so a wrong username costs the same time. */
 export function checkCredentials(user: string, password: string): boolean {
   const creds = credentials();
   if (!creds) return false;
-  const userOk = safeEqual(user, creds.user);
-  const passOk = safeEqual(password, creds.password);
-  return userOk && passOk;
+  let ok = false;
+  for (const login of [creds, ...extraLogins()]) {
+    const userOk = safeEqual(user, login.user);
+    const passOk = safeEqual(password, login.password);
+    ok ||= userOk && passOk;
+  }
+  return ok;
 }
 
 function sign(payload: string, key: string): string {

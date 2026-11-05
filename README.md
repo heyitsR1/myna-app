@@ -24,6 +24,7 @@ part of it.
 
 ## Docs
 
+- [`TEAM.md`](TEAM.md): **teammates start here**: links, how to try it, and a prompt for your AI agent.
 - [`SETUP.md`](SETUP.md): every service from scratch (Supabase, Ollama, the Meta
   app, Messenger, WhatsApp, deploy).
 - [`HANDOFF.md`](HANDOFF.md): a running log of decisions, current state,
