@@ -294,7 +294,8 @@
   font-weight: 550;
   color: var(--w-amber);
 }
-.wall-order-status.confirmed {
+.wall-order-status.confirmed,
+.wall-order-status.shipped {
   color: #4ade80;
 }
 .wall-order-item {

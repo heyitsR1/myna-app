@@ -174,6 +174,16 @@ try {
   }
   if (dupes.length) fail(`${dupes.length} thread(s) with more than one pending draft`, "migration 006_one_pending_draft.sql not applied?");
   ok(`inbox      ${convs.length} thread(s), ${orders.length} order(s)`);
+
+  // Store checkout orders have no conversation, so reset-demo's cascade
+  // misses them (column from monso-store's 005_store.sql).
+  const web = await rest("orders?source=eq.website&select=order_number").catch(() => null);
+  if (web?.length) {
+    warn(
+      `${web.length} website order(s) in the back office: #${web.map((o) => o.order_number).join(", #")}`,
+      "if they are test orders: DELETE them (reset-demo.mjs does not, they have no conversation)",
+    );
+  }
 } catch (err) {
   fail(`test data  ${err.message}`);
 }

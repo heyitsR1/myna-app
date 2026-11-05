@@ -111,7 +111,7 @@ export default function WallScreen({ handle }: { handle: string }) {
                   <div className="wall-order-top">
                     <span className="num">#{o.number}</span>
                     <span className={`wall-order-status ${o.status}`}>
-                      {o.status === "confirmed" ? "Confirmed" : "Waiting for owner"}
+                      {o.status === "shipped" ? "Shipped" : o.status === "confirmed" ? "Confirmed" : "Waiting for owner"}
                     </span>
                   </div>
                   <div className="wall-order-item">
