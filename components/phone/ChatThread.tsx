@@ -44,6 +44,11 @@ export default function ChatThread({ id }: { id: string }) {
   const vvh = useVisualViewportHeight();
 
   const conv = data?.conversation ?? null;
+
+  // The chat was deleted (or the link is stale, e.g. after logging in again): go to the list.
+  useEffect(() => {
+    if (data && !data.conversation) router.replace("/m/chats");
+  }, [data, router]);
   const messages = data?.messages ?? [];
   const pendingOrder = data?.orders.find((o) => o.status === "pending") ?? null;
   const channel = conv?.channel_connections?.channel ?? null;
