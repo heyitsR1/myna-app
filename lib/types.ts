@@ -51,6 +51,8 @@ export interface Message {
   created_at: string;
   /** Null on outbound messages, and when TypeSafe was unreachable. */
   triage: Triage | null;
+  /** A photo the customer sent (migration 008). */
+  media?: { kind: "image"; url?: string; wa_media_id?: string; mime?: string } | null;
 }
 
 export interface AiSource {

@@ -78,6 +78,8 @@ interface InboundMessage {
   sentAt: string | null;
   /** A photo / video / post with no words. Logged for the owner, never auto-answered. */
   attachmentOnly?: boolean;
+  /** A photo Maya can look at: Instagram/Messenger CDN url, or a WhatsApp media id. */
+  media?: { kind: "image"; url?: string; wa_media_id?: string; mime?: string } | null;
 }
 
 // Instagram + Messenger share the `messaging[]` envelope.
@@ -90,7 +92,7 @@ interface MessagingEvent {
     mid?: string;
     text?: string;
     is_echo?: boolean;
-    attachments?: Array<{ type?: string }>;
+    attachments?: Array<{ type?: string; payload?: { url?: string } }>;
   };
 }
 
@@ -105,6 +107,7 @@ interface WhatsAppValue {
     /** Seconds since epoch, as a string. */
     timestamp?: string;
     text?: { body?: string };
+    image?: { id?: string; mime_type?: string; caption?: string };
   }>;
 }
 
@@ -139,7 +142,8 @@ function parseMessagingEvent(channel: Channel, event: MessagingEvent): InboundMe
   const senderId = event.sender?.id;
   const accountId = event.recipient?.id;
   const externalMessageId = event.message?.mid;
-  const attachmentType = event.message?.attachments?.[0]?.type;
+  const attachment = event.message?.attachments?.[0];
+  const attachmentType = attachment?.type;
   const text =
     event.message?.text ??
     // Unknown types are dropped: Instagram also sends a "fallback" attachment
@@ -155,6 +159,7 @@ function parseMessagingEvent(channel: Channel, event: MessagingEvent): InboundMe
     text,
     sentAt: toIso(event.timestamp),
     attachmentOnly: !event.message?.text,
+    media: attachmentType === "image" && attachment?.payload?.url ? { kind: "image", url: attachment.payload.url } : null,
   };
 }
 
@@ -168,11 +173,14 @@ function parseWhatsAppValue(value: WhatsAppValue): InboundMessage[] {
   const out: InboundMessage[] = [];
   for (const msg of value.messages ?? []) {
     // Delivery/read receipts arrive under `statuses`, not `messages`, so
-    // anything here is a real inbound. Non-text types are skipped for now.
-    if (msg.type && msg.type !== "text") continue;
+    // anything here is a real inbound. Text and photos are handled; other
+    // types are skipped for now.
+    if (msg.type && msg.type !== "text" && msg.type !== "image") continue;
     const senderId = msg.from;
     const externalMessageId = msg.id;
-    const text = msg.text?.body;
+    const isImage = msg.type === "image" && Boolean(msg.image?.id);
+    const caption = msg.image?.caption?.trim();
+    const text = isImage ? caption || ATTACHMENT_LABEL.image : msg.text?.body;
     if (!senderId || !externalMessageId || !text) continue;
     out.push({
       channel: "whatsapp",
@@ -182,6 +190,8 @@ function parseWhatsAppValue(value: WhatsAppValue): InboundMessage[] {
       externalMessageId,
       text,
       sentAt: toIso(msg.timestamp),
+      attachmentOnly: isImage && !caption,
+      media: isImage ? { kind: "image", wa_media_id: msg.image!.id, mime: msg.image!.mime_type } : null,
     });
   }
   return out;
@@ -286,6 +296,7 @@ async function ingest(inbound: InboundMessage): Promise<void> {
         body: inbound.text,
         external_message_id: inbound.externalMessageId,
         created_at: sentAt,
+        media: inbound.media ?? null,
       },
       { onConflict: "external_message_id", ignoreDuplicates: true },
     )
@@ -317,9 +328,23 @@ async function ingest(inbound: InboundMessage): Promise<void> {
         .eq("id", conversation.id);
     }
 
-    // A shared ad or photo on its own is context, not a question: wait for
+    // A shared ad or video on its own is context, not a question: wait for
     // the words that usually follow ("kati parcha?") before Maya answers.
-    if (inbound.attachmentOnly) return;
+    // A photo is different, Maya can look at it: give the customer a few
+    // seconds to add words, and answer the photo only if they don't (the
+    // text's own pipeline sees the photo in its history).
+    if (inbound.attachmentOnly && !inbound.media) return;
+    if (inbound.attachmentOnly && inbound.media) {
+      await new Promise((r) => setTimeout(r, 7000));
+      const { data: newer } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("conversation_id", conversation.id)
+        .eq("direction", "inbound")
+        .gt("created_at", message.created_at)
+        .limit(1);
+      if (newer && newer.length > 0) return;
+    }
 
     try {
       await generateAndSendReply(conversation.id, message.id);

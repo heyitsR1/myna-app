@@ -2,7 +2,8 @@ import { chatJSON, type ChatMessage } from "@/lib/llm";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { retrieveContext, type RetrievedChunk } from "@/lib/rag";
 import { ATTACHMENT_LABEL, envAccountFor, envTokenFor, sendImage, sendMessage } from "@/lib/meta";
-import { claudeEnabled, runMaya, type BookingResult } from "@/lib/agent";
+import { claudeEnabled, runMaya, type BookingResult, type HistoryEntry } from "@/lib/agent";
+import { fetchImage } from "@/lib/media";
 import {
   catalogueForPrompt,
   formatCatalogue,
@@ -739,7 +740,7 @@ async function replyWithClaude(ctx: {
     brandName: brand.name,
     toneNotes: brand.tone_notes,
     chunks,
-    history: history.map((m) => ({ role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const), content: m.body })),
+    history: await historyWithPhotos(history),
     pendingOrder: pendingLine,
     tools: { products, book },
   });
@@ -831,4 +832,20 @@ async function replyWithClaude(ctx: {
     .from("conversations")
     .update({ status: !allOk || result.booking ? "needs_human" : "open", last_message_at: new Date().toISOString() })
     .eq("id", conversationId);
+}
+
+/** The thread for Claude, with the customer's two most recent photos attached. */
+async function historyWithPhotos(history: Message[]): Promise<HistoryEntry[]> {
+  const withMedia = history.filter((m) => m.direction === "inbound" && m.media).slice(-2);
+  const images = new Map(
+    await Promise.all(withMedia.map(async (m) => [m.id, await fetchImage(m.media!)] as const)),
+  );
+  return history.map((m) => {
+    const img = images.get(m.id);
+    return {
+      role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
+      content: m.body,
+      ...(img ? { images: [img] } : {}),
+    };
+  });
 }

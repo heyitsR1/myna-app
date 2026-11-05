@@ -17,8 +17,17 @@
 import type { RetrievedChunk } from "@/lib/rag";
 import { catalogueForPrompt, formatNpr, matchProduct } from "@/lib/orders";
 import type { Product } from "@/lib/types";
+import type { ImageData } from "@/lib/media";
+
+export interface HistoryEntry {
+  role: "user" | "assistant";
+  content: string;
+  /** Photos the customer sent with this message, already fetched. */
+  images?: ImageData[];
+}
 
 const API = "https://api.anthropic.com/v1/messages";
+const TRY_ON_URL = `${(process.env.STORE_URL ?? "https://monso.tailsgate.com").replace(/\/$/, "")}/try-on`;
 const MAX_TURNS = 5;
 
 export function claudeEnabled(): boolean {
@@ -138,6 +147,14 @@ How you talk:
 - Actually help them choose: ask what it's for (riding, trekking, everyday, gift), suggest the best 1-2 pairs with a reason, and show photos. Be a good salesperson, never pushy.
 - Stay on the shop. If someone asks for something unrelated (homework, code, general chat), politely bring it back to sunglasses.
 
+Photos customers send (you can see them):
+- Sunglasses in the photo (a screenshot, a reel, another brand, a celebrity, a friend's pair): say what you see in a few words (frame shape, colour, lens), find the closest Monso pair by shape, colour and lens, and send its photo. Never claim it is the same brand.
+- A selfie or face: kindly suggest the 1-2 frames that best suit their face shape, explain in one short reason, send photos, and invite them to try them on live: ${TRY_ON_URL}?sku=<CODE>. Only comment on face shape, never on looks, skin, weight or age.
+- Anything else: respond naturally and steer back to sunglasses.
+- If you can't see the photo clearly, ask.
+
+Virtual try-on: anyone can try any pair live with their phone camera at ${TRY_ON_URL}?sku=<CODE> (e.g. MS-03). Offer it when someone is deciding between pairs or asks how it would look on them.
+
 Facts:
 - Only use the catalogue and the shop guide below. Never invent prices, stock, discounts, delivery times or policies. If it isn't there, say you'll check with the owner and call handoff_to_owner.
 - You never give discounts or negotiate. Price questions get the listed price; discount requests go to the owner.
@@ -179,24 +196,39 @@ async function callClaude(system: string, messages: ApiMessage[]): Promise<{ con
   return (await res.json()) as { content: Block[]; stop_reason: string };
 }
 
+type ContentBlock = Record<string, unknown>;
+
+function blocksFor(m: HistoryEntry): ContentBlock[] {
+  const images = (m.images ?? []).map((img) => ({
+    type: "image",
+    source: { type: "base64", media_type: img.media_type, data: img.data },
+  }));
+  const text = m.images?.length ? `${m.content}\n[The customer sent the photo above.]` : m.content;
+  return [...images, { type: "text", text }];
+}
+
 /** Claude wants strictly alternating turns that start with the customer. */
-function toApiMessages(history: Array<{ role: "user" | "assistant"; content: string }>): ApiMessage[] {
-  const out: ApiMessage[] = [];
+function toApiMessages(history: HistoryEntry[]): ApiMessage[] {
+  const out: Array<{ role: "user" | "assistant"; blocks: ContentBlock[] }> = [];
   for (const m of history) {
-    if (!m.content.trim()) continue;
+    if (!m.content.trim() && !m.images?.length) continue;
     if (out.length === 0 && m.role === "assistant") continue;
     const last = out[out.length - 1];
-    if (last && last.role === m.role) last.content = `${last.content}\n${m.content}`;
-    else out.push({ role: m.role, content: m.content });
+    if (last && last.role === m.role) last.blocks.push(...blocksFor(m));
+    else out.push({ role: m.role, blocks: blocksFor(m) });
   }
-  return out;
+  return out.map(({ role, blocks }) =>
+    blocks.every((b) => b.type === "text")
+      ? { role, content: blocks.map((b) => b.text as string).join("\n") }
+      : { role, content: blocks },
+  );
 }
 
 export async function runMaya(input: {
   brandName: string;
   toneNotes: string | null;
   chunks: RetrievedChunk[];
-  history: Array<{ role: "user" | "assistant"; content: string }>;
+  history: HistoryEntry[];
   pendingOrder: string;
   tools: AgentTools;
 }): Promise<AgentResult> {
