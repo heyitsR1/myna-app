@@ -49,7 +49,7 @@ const accounts = {
 const senders = {
   instagram: sender ?? "9900112233445566",
   messenger: sender ?? "7788990011223344",
-  whatsapp: sender ?? "9779800000000",
+  whatsapp: sender ?? "000000000000", // not a routable number: a default must never reach a real person
 };
 
 const mid = `sim-${channel}-${Date.now()}`;
