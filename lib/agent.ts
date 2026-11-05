@@ -41,6 +41,11 @@ export function claudeModel(): string {
 
 export interface BookingResult {
   ok: boolean;
+  orderId?: string;
+  orderNumber?: number;
+  total?: number;
+  itemName?: string;
+  address?: string | null;
   /** What the customer is shown, built by our code: order number, item, total. */
   summary?: string;
   missing?: string[];

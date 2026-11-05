@@ -95,7 +95,12 @@ export default function InboxScreen() {
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [conversations, setConversations] = useState<InboxConversation[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // A push notification opens /inbox?c=<conversation id> on that thread. The
+  // first render is the loading state whatever this holds, so reading the URL
+  // here can't cause a hydration mismatch.
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("c"),
+  );
   const [messages, setMessages] = useState<Message[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [composerText, setComposerText] = useState("");

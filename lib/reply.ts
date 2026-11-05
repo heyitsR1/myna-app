@@ -4,6 +4,8 @@ import { retrieveContext, type RetrievedChunk } from "@/lib/rag";
 import { ATTACHMENT_LABEL, envAccountFor, envTokenFor, sendImage, sendMessage } from "@/lib/meta";
 import { claudeEnabled, runMaya, type BookingResult, type HistoryEntry } from "@/lib/agent";
 import { fetchImage } from "@/lib/media";
+import { autopilotEnabled, notifyOwner } from "@/lib/push";
+import { decideOrder } from "@/lib/decide-order";
 import {
   catalogueForPrompt,
   formatCatalogue,
@@ -307,6 +309,23 @@ export async function generateAndSendReply(
     }
     await supabase.from("conversations").update({ status: "needs_human" }).eq("id", conversationId);
     console.log(`[reply] held for human [${kind}] (${conversationId}): ${reason}`);
+    if (kind !== "abuse") {
+      const who = conversation.customer_name || "A customer";
+      const what: Record<HoldKind, string> = {
+        negotiation: "asked for a discount",
+        complaint: "has a complaint",
+        person: "wants to talk to you",
+        judgment: "needs your reply",
+        abuse: "",
+      };
+      await notifyOwner({
+        kind: "handoff",
+        title: `${who} ${what[kind]}`,
+        body: `“${inbound.body.slice(0, 90)}” · Maya drafted a reply for you`,
+        url: `/inbox?c=${conversationId}`,
+        tag: `handoff-${conversationId}`,
+      });
+    }
   };
 
   const lastAssistant = [...history].reverse().find((m) => m.direction === "outbound")?.body ?? null;
@@ -731,6 +750,11 @@ async function replyWithClaude(ctx: {
     return {
       ok: true,
       missing,
+      orderId: order.id,
+      orderNumber: order.order_number,
+      total,
+      itemName: quantity > 1 ? `${product.name} ×${quantity}` : product.name,
+      address: order.delivery_address,
       summary: `Order #${order.order_number} ${same ? "updated" : "booked"} ✅\n${product.name}\n${product.sku} · Qty ${quantity} · ${formatNpr(total)}`,
     };
   };
@@ -832,6 +856,35 @@ async function replyWithClaude(ctx: {
     .from("conversations")
     .update({ status: !allOk || result.booking ? "needs_human" : "open", last_message_at: new Date().toISOString() })
     .eq("id", conversationId);
+
+  const b = result.booking;
+  if (b?.ok && b.orderId) {
+    const where = b.address ? ` · ${b.address.split(",")[0]}` : "";
+    const via = channel === "whatsapp" ? "WhatsApp" : channel === "instagram" ? "Instagram" : "Messenger";
+    // Autopilot confirms only a complete order: Maya never confirms one she
+    // still has to ask the address or phone for.
+    if (!b.missing?.length && (await autopilotEnabled(brand.id))) {
+      const done = await decideOrder(b.orderId, "confirmed", { by: "maya" });
+      if (done.ok) {
+        await notifyOwner({
+          kind: "autoconfirmed",
+          title: `Maya confirmed order #${b.orderNumber} · ${formatNpr(b.total ?? 0)}`,
+          body: `${b.itemName}${where} · ${conversation.customer_name ?? "customer"} on ${via}`,
+          url: `/orders/${b.orderId}`,
+          tag: `order-${b.orderId}`,
+        });
+        return;
+      }
+      console.error("[reply] autopilot confirm failed:", done.error);
+    }
+    await notifyOwner({
+      kind: "order",
+      title: `New order #${b.orderNumber} · ${formatNpr(b.total ?? 0)}`,
+      body: `${b.itemName}${where} · ${conversation.customer_name ?? "customer"} on ${via}${b.missing?.length ? ` · waiting for ${b.missing.join(" & ")}` : " · tap to confirm"}`,
+      url: `/orders/${b.orderId}`,
+      tag: `order-${b.orderId}`,
+    });
+  }
 }
 
 /** The thread for Claude, with the customer's two most recent photos attached. */
