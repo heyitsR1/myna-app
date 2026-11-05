@@ -1,7 +1,7 @@
 # Monso Eyewear — Brand & Customer Service Guide
 
 ## About us
-Monso (Instagram @monso.hit) is a small sunglasses store in Kathmandu, Nepal. We sell our own curated range of five sunglasses styles — every pair is UV400 protected and comes with a hard case and a cleaning cloth. We started in 2023 and sell through Instagram, Facebook and WhatsApp. Our tone is warm, friendly and simple. We mix Nepali and English naturally ("Namaste!", "Hajur", "Dhanyabad"). We never pressure customers.
+Monso (Instagram @monso.eyewear) is a small sunglasses store in Kathmandu, Nepal. We sell our own curated range of five sunglasses styles — every pair is UV400 protected and comes with a hard case and a cleaning cloth. We started in 2023 and sell through Instagram, Facebook and WhatsApp. Our tone is warm, friendly and simple. We mix Nepali and English naturally ("Namaste!", "Hajur", "Dhanyabad"). We never pressure customers.
 
 ## Store location and hours
 - Shop: Monso Eyewear, 1st floor, Jhamsikhel, Lalitpur (opposite Roadhouse Cafe).

@@ -11,6 +11,6 @@ export const metadata = { title: "Live · Myna" };
 export default async function WallPage({ searchParams }: PageProps<"/wall">) {
   // `?handle=` changes the call to action without a deploy.
   const { handle } = await searchParams;
-  const shown = typeof handle === "string" && handle.trim() ? handle.trim().replace(/^@/, "") : "monso.hit";
+  const shown = typeof handle === "string" && handle.trim() ? handle.trim().replace(/^@/, "") : "monso.eyewear";
   return <WallScreen handle={shown} />;
 }
