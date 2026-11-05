@@ -186,10 +186,26 @@ async function upsertPendingDraft(
 
 const QUANTITY_CHANGE = /\b(make it|change (it )?to|instead)\b|\b\d+\s*(pairs?|pieces?|pcs|ota|wota)\b/i;
 
+/**
+ * A reply that only names a product, right after the list: "MS-03", "3",
+ * "the wayfarer", "navigator amber please". On 5 Nov "can i see the photos
+ * or something?" booked MS-03, because the fuzzy matcher found "the" in its
+ * description. So a question never counts, and a match must come from the
+ * SKU, the list number or a word of the product's name, never its description.
+ */
+const NOT_A_PICK = /\?|^\s*(is|are|does|do|will|would|kun|kasto)\b|\b(can|could|what|how|which|show|see|photo|photos|pic|pics|picture|image|video|look|size|colou?r|available|stock|deliver\w*|price|kati|cha\b|xa\b)\b/i;
+
 function isBareProductRef(latest: string, lastAssistant: string | null, products: Product[]): Product | null {
   const afterCatalogue = Boolean(lastAssistant && lastAssistant.includes("to book one"));
-  const short = latest.trim().length <= 40;
-  return afterCatalogue && short ? matchProduct(products, latest) : null;
+  const text = latest.trim().toLowerCase();
+  if (!afterCatalogue || text.length > 40 || NOT_A_PICK.test(text)) return null;
+  const code = text.match(/\bms\s*-?\s*0?(\d{1,2})\b/);
+  if (code) return products.find((p) => p.sku.toLowerCase() === `ms-${code[1].padStart(2, "0")}`) ?? null;
+  const index = text.match(/^(#|no\.?|number|item)?\s*(\d{1,2})$/);
+  if (index) return products[Number(index[2]) - 1] ?? null;
+  const words = new Set(text.split(/[^a-z]+/).filter((w) => w.length >= 4));
+  const named = products.filter((p) => p.name.toLowerCase().split(/\s+/).some((w) => w.length >= 4 && words.has(w)));
+  return named.length === 1 ? named[0] : null;
 }
 
 function bookingIsExplicit(latest: string, lastAssistant: string | null, products: Product[]): boolean {
