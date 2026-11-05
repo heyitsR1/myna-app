@@ -41,9 +41,9 @@ const META = {
 
 /** Which env vars light each channel up, shown when it is still dark. */
 const ENV_HINT: Record<Channel, string> = {
-  instagram: "SET IG_ACCESS_TOKEN + IG_ACCOUNT_ID IN .ENV.LOCAL",
-  messenger: "SET FB_PAGE_ACCESS_TOKEN + FB_PAGE_ID IN .ENV.LOCAL",
-  whatsapp: "SET WA_ACCESS_TOKEN + WA_PHONE_NUMBER_ID IN .ENV.LOCAL",
+  instagram: "Set IG_ACCESS_TOKEN and IG_ACCOUNT_ID in .env.local",
+  messenger: "Set FB_PAGE_ACCESS_TOKEN and FB_PAGE_ID in .env.local",
+  whatsapp: "Set WA_ACCESS_TOKEN and WA_PHONE_NUMBER_ID in .env.local",
 };
 
 export default function ChannelsScreen() {
