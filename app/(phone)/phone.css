@@ -1727,3 +1727,113 @@ html:has(.ph) {
     animation: none !important;
   }
 }
+
+/* ── customers ─────────────────────────────────────────────────────────── */
+.ph-top-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ph-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-right: -8px;
+  border-radius: 50%;
+  color: var(--text-2);
+  touch-action: manipulation;
+  transition: background-color 120ms;
+}
+.ph-icon-btn:active {
+  background: var(--subtle);
+}
+.ph-icon-btn svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+.ph-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px var(--ph-pad) 6px;
+}
+.ph-kpis.card {
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--line);
+}
+.ph-kpis b {
+  display: block;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.ph-kpis span {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.ph-cust-spent {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green);
+}
+.ph-cust-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: 8px;
+  animation: rise 0.4s var(--ease-out) both;
+}
+.ph-cust-name {
+  margin-top: 12px;
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+.ph-cust-sub {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--text-3);
+}
+.ph-cust-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.ph-tagset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ph-note-box {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+  line-height: 1.4;
+  resize: none;
+  field-sizing: content;
+  min-height: 84px;
+  outline: none;
+}
+.ph-note-box:focus {
+  border-color: var(--text-3);
+}
+.ph-saved {
+  justify-self: end;
+  font-size: 13px;
+  color: var(--green);
+}

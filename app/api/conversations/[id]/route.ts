@@ -16,14 +16,23 @@ export async function PATCH(
   const body = (await request.json().catch(() => null)) as {
     ai_enabled?: boolean;
     status?: "open" | "needs_human" | "resolved";
+    notes?: string | null;
+    tags?: string[];
   } | null;
-  if (!body || (body.ai_enabled === undefined && body.status === undefined)) {
+  if (
+    !body ||
+    (body.ai_enabled === undefined && body.status === undefined && body.notes === undefined && body.tags === undefined)
+  ) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
   const patch: Record<string, unknown> = {};
   if (body.ai_enabled !== undefined) patch.ai_enabled = body.ai_enabled;
   if (body.status !== undefined) patch.status = body.status;
+  if (body.notes !== undefined) patch.notes = body.notes?.slice(0, 2000) || null;
+  if (Array.isArray(body.tags)) {
+    patch.tags = [...new Set(body.tags.filter((t) => typeof t === "string").map((t) => t.trim().slice(0, 24)).filter(Boolean))].slice(0, 8);
+  }
 
   const { data, error } = await supabase
     .from("conversations")

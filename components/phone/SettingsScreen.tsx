@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import AutopilotSwitch from "@/components/phone/AutopilotSwitch";
 import { NotificationRow, NotificationSetupCard } from "@/components/phone/NotificationCard";
 import { usePush } from "@/components/phone/usePush";
@@ -9,8 +10,15 @@ export default function SettingsScreen() {
   const push = usePush();
   return (
     <div className="ph">
-      <header className="ph-top">
-        <h1 className="ph-top-large">Maya</h1>
+      <header className="ph-top bar">
+        <Link href="/m" className="ph-back" aria-label="Back to Today">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          Today
+        </Link>
+        <span className="ph-top-title">Maya</span>
+        <span className="ph-top-spacer" />
       </header>
       <main className="ph-main with-tabs">
         <section className="ph-maya-card">

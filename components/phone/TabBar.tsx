@@ -26,9 +26,15 @@ const TABS = [
     ),
   },
   {
-    href: "/m/settings",
-    label: "Maya",
-    icon: <path d="M12 3l2.2 6.6L21 12l-6.8 2.4L12 21l-2.2-6.6L3 12l6.8-2.4z" />,
+    href: "/m/customers",
+    label: "Customers",
+    icon: (
+      <>
+        <circle cx="9" cy="8.5" r="3.5" />
+        <path d="M2.5 20a6.5 6.5 0 0 1 13 0z" />
+        <path d="M16 5.2a3.5 3.5 0 0 1 0 6.6M18 14.3a6.5 6.5 0 0 1 3.5 5.7" />
+      </>
+    ),
   },
 ] as const;
 
@@ -36,7 +42,8 @@ const TABS = [
 export default function TabBar() {
   const pathname = usePathname();
   const { data } = usePoll<Summary>("/api/summary", 15000);
-  if (/^\/m\/chats\/[^/]+/.test(pathname)) return null;
+  // Inside a conversation the composer owns the bottom edge; detail screens push over the tabs.
+  if (/^\/m\/(chats|customers)\/[^/]+/.test(pathname)) return null;
 
   const badge: Record<string, number> = {
     "/m/chats": data?.needs ?? 0,
