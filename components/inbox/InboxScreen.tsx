@@ -101,6 +101,9 @@ export default function InboxScreen() {
   const [composerText, setComposerText] = useState("");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // Big-screen mode for the stage: larger type, faster polling. Remembered
+  // per browser; `?projector=1` turns it on from a bookmark.
+  const [projector, setProjector] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef<string | null>(null);
 
@@ -134,11 +137,23 @@ export default function InboxScreen() {
   }, []);
 
   useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("projector");
+    const on = fromUrl !== null ? fromUrl !== "0" : localStorage.getItem("myna-projector") === "1";
+    const t = window.setTimeout(() => setProjector(on), 0);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("projector", projector);
+    localStorage.setItem("myna-projector", projector ? "1" : "0");
+  }, [projector]);
+
+  useEffect(() => {
     const kick = window.setTimeout(loadInbox, 0);
     const poll = window.setInterval(() => {
       loadInbox();
       if (selectedIdRef.current) loadMessages(selectedIdRef.current);
-    }, 4000);
+    }, projector ? 2000 : 4000);
 
     // Live updates when the anon key can see the tables (post-auth setups);
     // the poller above covers dev mode.
@@ -160,7 +175,7 @@ export default function InboxScreen() {
       window.clearInterval(poll);
       channel?.unsubscribe();
     };
-  }, [loadInbox, loadMessages]);
+  }, [loadInbox, loadMessages, projector]);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -309,6 +324,14 @@ export default function InboxScreen() {
                 {conversations.length} {conversations.length === 1 ? "chat" : "chats"}
               </span>
             )}
+            <button
+              className={`projector-toggle ${projector ? "on" : ""}`}
+              aria-pressed={projector}
+              onClick={() => setProjector((p) => !p)}
+              title="Larger text for a projector"
+            >
+              Big screen
+            </button>
           </div>
           <div className="h-sub">
             {conversations.length === 0

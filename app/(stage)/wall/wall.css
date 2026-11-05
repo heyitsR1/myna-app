@@ -1,0 +1,337 @@
+/*
+ * Projector wall. Dark warm stone, because a projector washes out a light
+ * page and the room is usually lit. Sizes are in vw so the same layout fills
+ * a 1280×720 projector and a 4K screen alike. Amber is the one accent and
+ * means only "waiting for the owner", as in the inbox.
+ */
+.wall {
+  --w-bg: #0c0a09;
+  --w-card: #1c1917;
+  --w-card-2: #292524;
+  --w-line: #44403c;
+  --w-text: #fafaf9;
+  --w-text-2: #d6d3d1;
+  --w-text-3: #a8a29e;
+  --w-amber: #f59e0b;
+  --w-amber-bg: rgba(245, 158, 11, 0.1);
+
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 1.6vw;
+  padding: 2.2vw 2.6vw;
+  background: var(--w-bg);
+  color: var(--w-text);
+  font-size: 1.15vw;
+  line-height: 1.35;
+  overflow: hidden;
+  cursor: none;
+}
+
+.wall .num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── header ── */
+.wall-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2vw;
+}
+.wall-brand {
+  display: flex;
+  align-items: center;
+  gap: 1.1vw;
+}
+.wall-title {
+  font-size: 2.3vw;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.wall-sub {
+  color: var(--w-text-3);
+  font-size: 1.1vw;
+}
+.wall-live {
+  width: 1vw;
+  height: 1vw;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  animation: wall-pulse 2.4s ease-out infinite;
+}
+.wall-live.is-stale {
+  background: var(--w-text-3);
+  animation: none;
+}
+.wall-cta {
+  font-size: 2vw;
+  color: var(--w-text-2);
+  letter-spacing: -0.01em;
+}
+.wall-cta strong {
+  color: var(--w-text);
+  font-weight: 650;
+}
+
+/* ── stats ── */
+.wall-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1vw;
+}
+.wall-stat {
+  background: var(--w-card);
+  border: 1px solid var(--w-line);
+  border-radius: 0.9vw;
+  padding: 1vw 1.3vw;
+}
+.wall-stat-value {
+  font-size: 3vw;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.wall-stat-label {
+  color: var(--w-text-3);
+  font-size: 1.05vw;
+}
+.wall-stat.is-accent .wall-stat-value {
+  color: var(--w-amber);
+}
+
+/* ── body ── */
+.wall-body {
+  display: grid;
+  grid-template-columns: 1fr 22vw;
+  gap: 1.6vw;
+  min-height: 0;
+}
+.wall-feed {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 1vw;
+  min-height: 0;
+}
+
+.wall-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vw;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--w-card);
+  border: 1px solid var(--w-line);
+  border-radius: 0.9vw;
+  padding: 1.1vw 1.3vw;
+  animation: wall-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.wall-card.is-held,
+.wall-card.is-hidden {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.wall-card-who {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6vw;
+  color: var(--w-text-3);
+  font-size: 1vw;
+}
+.wall-name {
+  color: var(--w-text);
+  font-weight: 600;
+  font-size: 1.2vw;
+}
+.wall-dot {
+  width: 0.6vw;
+  height: 0.6vw;
+  border-radius: 50%;
+  background: var(--w-text-3);
+}
+.wall-dot.instagram { background: #e1306c; }
+.wall-dot.whatsapp { background: #25d366; }
+.wall-dot.messenger { background: #0866ff; }
+
+.wall-customer {
+  flex: none;
+  font-size: 1.55vw;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.wall-muted {
+  color: var(--w-text-3);
+  font-weight: 450;
+}
+
+.wall-reply {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25vw;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--w-card-2);
+  border-radius: 0.7vw;
+  padding: 0.7vw 1vw;
+  animation: wall-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+/* Long replies (the catalogue) fade out instead of cutting a line in half. */
+.wall-reply p {
+  min-height: 2.7em;
+  color: var(--w-text-2);
+  white-space: pre-line;
+  overflow: hidden;
+  padding-bottom: 0.9vw;
+  margin-bottom: -0.7vw;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 1.1vw), transparent);
+}
+.wall-maya {
+  font-size: 0.95vw;
+  font-weight: 600;
+  color: var(--w-text-3);
+}
+.wall-time {
+  font-weight: 450;
+}
+.wall-reply.is-held {
+  background: var(--w-amber-bg);
+}
+.wall-reply.is-held .wall-maya {
+  color: var(--w-amber);
+}
+.wall-reply.is-thinking {
+  flex: none;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.8vw;
+}
+.wall-dots {
+  display: inline-flex;
+  gap: 0.35vw;
+}
+.wall-dots i {
+  width: 0.5vw;
+  height: 0.5vw;
+  border-radius: 50%;
+  background: var(--w-text-3);
+  animation: wall-dot 1.2s ease-in-out infinite;
+}
+.wall-dots i:nth-child(2) { animation-delay: 0.15s; }
+.wall-dots i:nth-child(3) { animation-delay: 0.3s; }
+
+.wall-empty {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8vw;
+  border: 1px dashed var(--w-line);
+  border-radius: 0.9vw;
+}
+.wall-empty-big {
+  font-size: 3.4vw;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+.wall-empty-fine {
+  color: var(--w-text-3);
+  font-size: 1.5vw;
+}
+
+/* ── orders ── */
+.wall-orders {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8vw;
+  min-height: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 4vw), transparent);
+}
+.wall-orders ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7vw;
+}
+.wall-side-title {
+  color: var(--w-text-3);
+  font-size: 1.05vw;
+  font-weight: 550;
+}
+.wall-side-empty {
+  color: var(--w-text-3);
+  border: 1px dashed var(--w-line);
+  border-radius: 0.9vw;
+  padding: 1.2vw;
+}
+.wall-order {
+  background: var(--w-card);
+  border: 1px solid var(--w-line);
+  border-radius: 0.9vw;
+  padding: 0.9vw 1.1vw;
+  animation: wall-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.wall-order-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 1.5vw;
+  font-weight: 650;
+}
+.wall-order-status {
+  font-size: 0.95vw;
+  font-weight: 550;
+  color: var(--w-amber);
+}
+.wall-order-status.confirmed {
+  color: #4ade80;
+}
+.wall-order-item {
+  font-size: 1.15vw;
+  color: var(--w-text);
+}
+.wall-order-meta {
+  color: var(--w-text-3);
+  font-size: 1vw;
+}
+
+@keyframes wall-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.8vw) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wall-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-0.25vw); }
+}
+@keyframes wall-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+  70% { box-shadow: 0 0 0 1.2vw rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wall-card,
+  .wall-reply,
+  .wall-order,
+  .wall-live,
+  .wall-dots i {
+    animation: none;
+  }
+}
