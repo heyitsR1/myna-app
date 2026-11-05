@@ -125,6 +125,14 @@ const PRICE_LIST_ASK =
   /(\b(kati\s*(ho|parch?ha|parcha|parxa|pardaina|ho\s*dam|ma)?|dam\s*kati|mol\s*kati|rate\s*kati|price\s*(list|please|plz|pls)?|prices|rates?|k\s*k\s*(cha|xa|chha)|ke\s*ke\s*(cha|xa|chha)|what\s+do\s+you\s+(sell|have)|collection|catalog(ue)?)\b|कति|मूल्य|के के छ)/i;
 
 /**
+ * A request to order that names nothing ("i want to order", "how do I buy",
+ * "order garna paryo"). Matched against the whole message so "I want to
+ * order MS-03" or "order for my sister?" don't count.
+ */
+const ORDER_WITHOUT_ITEM =
+  /^\s*(hi|hello|hey|namaste)?[\s,!.]*(i\s*(want|wanna|would like|'?d like|need)\s*(to\s*)?(order|buy|purchase|get)(\s+(some|one|a pair|sunglasses|glasses|something|a sunglass))?|can\s+i\s+(order|buy)(\s+(some|one|sunglasses))?|how\s+(do|can)\s+i\s+(order|buy)|(order|kinna|lina)\s*(garna|garnu)?\s*(paryo|parcha|man\s*(cha|xa)|milcha)?)[\s.!?🙏]*$/i;
+
+/**
  * Holding lines for the holds where the model must not improvise. On 5 Nov a
  * "Discount?" was held, but the draft Maya wrote ("prices are fixed, festival
  * offers") was itself a pricing decision, and the owner approved it on
@@ -409,6 +417,23 @@ export async function generateAndSendReply(
   if (ABUSIVE.test(inbound.body) && holdKind !== "abuse") {
     triageHold = "abusive words — no auto-reply";
     holdKind = "abuse";
+  }
+
+  // "i want to order" with nothing named: Jev scored it buy@0.40, which held
+  // it as unclear, and the draft Maya wrote trailed off mid-sentence. The
+  // right reply is always the list, so only a low-confidence judgment hold
+  // gives way here; abuse, discounts and needs-a-human holds still win.
+  if (
+    products.length > 0 &&
+    inbound.body.trim().length <= 60 &&
+    ORDER_WITHOUT_ITEM.test(inbound.body) &&
+    !matchProduct(products, inbound.body) &&
+    (!triageHold || (holdKind === "judgment" && triage !== null && triage.needsHuman < 0.6))
+  ) {
+    console.log(`[reply] upgraded → catalogue: order ask with no item "${inbound.body.slice(0, 60)}"`);
+    triageHold = null;
+    decision.intent = "catalogue";
+    decision.confidence = Math.max(decision.confidence, CONFIDENCE_FLOOR);
   }
 
   if (
