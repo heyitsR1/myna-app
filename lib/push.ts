@@ -206,9 +206,13 @@ export async function buildPushRequest(
     TTL: String(options.ttl ?? 24 * 60 * 60),
     Urgency: options.urgency ?? "high",
   };
-  // Topic must be ≤32 base64url chars; it collapses undelivered pushes server-side.
-  const topic = options.topic?.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32);
-  if (topic) headers.Topic = topic;
+  // Topic collapses undelivered pushes server-side. Apple rejects anything that
+  // isn't valid base64url (BadWebPushTopic, e.g. "myna-test"), so send a hash:
+  // 24 bytes of SHA-256 is exactly 32 base64url characters.
+  if (options.topic) {
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(options.topic)));
+    headers.Topic = b64urlEncode(digest.slice(0, 24));
+  }
   return { endpoint: subscription.endpoint, headers, body };
 }
 
@@ -236,7 +240,17 @@ export async function sendToAllSubscriptions(payload: {
     report.subscriptions = subscriptions.length;
     if (subscriptions.length === 0) return report;
 
-    const message = { ...payload, url: payload.url.startsWith("/") ? payload.url : "/m", sentAt: Date.now() };
+    const url = payload.url.startsWith("/") ? payload.url : "/m";
+    // Safari's Declarative Web Push shape (web_push: 8030) alongside our own
+    // fields: iOS 18.4+ shows `notification` itself even if the service
+    // worker never wakes; sw.js still handles the push event when it does.
+    const message = {
+      ...payload,
+      url,
+      sentAt: Date.now(),
+      web_push: 8030,
+      notification: { title: payload.title, body: payload.body, navigate: `${appOrigin()}${url}`, tag: payload.tag, silent: false },
+    };
     const gone: string[] = [];
 
     await Promise.all(
@@ -275,6 +289,10 @@ export async function sendToAllSubscriptions(payload: {
     console.error("[push] send failed:", error instanceof Error ? error.message : error);
   }
   return report;
+}
+
+function appOrigin(): string {
+  return (process.env.APP_ORIGIN ?? "https://myna.tailsgate.com").replace(/\/$/, "");
 }
 
 function shortEndpoint(endpoint: string): string {
