@@ -16,6 +16,7 @@ export interface PhoneOrder {
   confirmed_at: string | null;
   confirmed_by?: "owner" | "maya" | null;
   source?: "dm" | "website" | null;
+  conversation_id?: string | null;
   conversations?: { customer_name: string | null; channel_connections: { channel: ChannelName } | null } | null;
 }
 

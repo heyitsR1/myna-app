@@ -43,7 +43,24 @@ function basicAuthOk(header: string | null): boolean {
   return checkCredentials(decoded.slice(0, separator), decoded.slice(separator + 1));
 }
 
+/**
+ * Phones get the phone app. The desktop inbox is a three-pane layout that
+ * can't fold down to 390px, so a phone opening /inbox (an old bookmark, a
+ * shared link) lands on /m/chats instead. `?desktop=1` opts out.
+ */
+function phoneRedirect(request: NextRequest): NextResponse | null {
+  const { pathname, searchParams } = request.nextUrl;
+  if (pathname !== "/inbox" || searchParams.has("desktop")) return null;
+  const mobileHint = request.headers.get("sec-ch-ua-mobile") === "?1";
+  const ua = request.headers.get("user-agent") ?? "";
+  if (!mobileHint && !/iPhone|iPod|Android.+Mobile/.test(ua)) return null;
+  const c = searchParams.get("c");
+  return NextResponse.redirect(new URL(c ? `/m/chats/${c}` : "/m/chats", request.url));
+}
+
 export function proxy(request: NextRequest) {
+  const toPhone = phoneRedirect(request);
+  if (toPhone) return toPhone;
   if (!gateEnabled()) return NextResponse.next();
 
   if (verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value)) {

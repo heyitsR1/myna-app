@@ -75,7 +75,7 @@ export default function OrderScreen({ initial }: { initial: PhoneOrder }) {
   return (
     <div className="ph ph-order-screen">
       <header className="ph-top bar">
-        <Link href="/m" className="ph-back" aria-label="Back to orders">
+        <Link href="/m/orders" className="ph-back" aria-label="Back to orders">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M15 18l-6-6 6-6" />
           </svg>
@@ -92,6 +92,11 @@ export default function OrderScreen({ initial }: { initial: PhoneOrder }) {
           <div className="ph-hero-sub">
             {customer} · via {channel.label} · {ago(order.created_at)} ago
           </div>
+          {order.conversation_id && (
+            <Link href={`/m/chats/${order.conversation_id}`} className="ph-btn small ph-hero-chat">
+              Open the chat
+            </Link>
+          )}
         </section>
 
         <section className="ph-sec">
@@ -184,7 +189,7 @@ export default function OrderScreen({ initial }: { initial: PhoneOrder }) {
                     : `${customer} got the confirmation on ${channel.label}.`)}
               </span>
             </span>
-            <Link href="/m" className="ph-btn small">
+            <Link href="/m/orders" className="ph-btn small">
               Done
             </Link>
           </div>

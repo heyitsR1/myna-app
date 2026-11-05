@@ -1,7 +1,7 @@
-import PhoneHome from "@/components/phone/PhoneHome";
+import TodayScreen from "@/components/phone/TodayScreen";
 
 export const metadata = { title: "Myna" };
 
-export default function PhoneHomePage() {
-  return <PhoneHome />;
+export default function TodayPage() {
+  return <TodayScreen />;
 }

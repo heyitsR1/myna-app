@@ -322,7 +322,7 @@ export async function generateAndSendReply(
         kind: "handoff",
         title: `${who} ${what[kind]}`,
         body: `“${inbound.body.slice(0, 90)}” · Maya drafted a reply for you`,
-        url: `/inbox?c=${conversationId}`,
+        url: `/m/chats/${conversationId}`,
         tag: `handoff-${conversationId}`,
       });
     }
@@ -659,7 +659,7 @@ export async function generateAndSendReply(
 
 const STORE_URL = (process.env.STORE_URL ?? "https://monso.tailsgate.com").replace(/\/$/, "");
 
-function photoUrl(p: Product): string | null {
+export function photoUrl(p: Product): string | null {
   const path = p.image_url ?? (p.slug ? `/products/${p.slug}.jpg` : null);
   if (!path) return null;
   return path.startsWith("http") ? path : `${STORE_URL}${path}`;

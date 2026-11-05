@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import type { Channel } from "@/lib/types";
 import { envAccountFor, envTokenFor, sendMessage } from "@/lib/meta";
+import { photoUrl } from "@/lib/reply";
 
 export const runtime = "nodejs";
 
@@ -15,7 +16,7 @@ export async function GET(
     return NextResponse.json({ messages: [] });
   }
 
-  const [msgs, orders] = await Promise.all([
+  const [msgs, orders, conversation, products] = await Promise.all([
     supabase
       .from("messages")
       .select("*")
@@ -26,11 +27,26 @@ export async function GET(
       .select("*")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("conversations")
+      .select("*, channel_connections(channel)")
+      .eq("id", conversationId)
+      .maybeSingle(),
+    supabase.from("products").select("*"),
   ]);
   if (msgs.error) {
     return NextResponse.json({ messages: [], orders: [], error: msgs.error.message }, { status: 500 });
   }
-  return NextResponse.json({ messages: msgs.data ?? [], orders: orders.data ?? [] });
+  // SKU → photo URL, so the phone thread can show the product photos Maya sent.
+  const photos = Object.fromEntries(
+    (products.data ?? []).map((p) => [p.sku, photoUrl(p)]).filter(([, url]) => url),
+  );
+  return NextResponse.json({
+    messages: msgs.data ?? [],
+    orders: orders.data ?? [],
+    conversation: conversation.data ?? null,
+    photos,
+  });
 }
 
 interface SendContext {
