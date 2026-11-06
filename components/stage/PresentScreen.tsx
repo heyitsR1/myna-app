@@ -20,7 +20,7 @@ import { DECK_ORIGINS } from "./present-config";
  *  H      hide the tabs and timer buttons
  *  F      full screen for the whole console (so the timer stays on top)
  *  T      start / pause the audience timer (shown from the first press)
- *  + / =  timer +10 s     ]  timer +20 s     R  hide and reset the timer
+ *  + / =  timer +10 s     ]  timer +20 s     R (or click the clock)  hide it
  *  arrows move the slides on Slides, even when focus is on a tab button
  *  B      swap in the backup recording (and back); Shift+B restarts it
  *
@@ -323,7 +323,14 @@ export default function PresentScreen({ deckUrl }: { deckUrl: string }) {
       )}
 
       {timer.shown && (
-        <div className="present-timer" data-state={timerState} role="timer" aria-live="off">
+        <div
+          className="present-timer"
+          data-state={timerState}
+          role="timer"
+          aria-live="off"
+          title="Click to hide"
+          onClick={() => setTimer(TIMER_IDLE)}
+        >
           <svg className="present-timer-dial" viewBox="0 0 120 120" aria-hidden>
             {Array.from({ length: 12 }, (_, i) => (
               <line key={i} className="present-timer-tick" x1="60" y1="7" x2="60" y2="13" transform={`rotate(${i * 30} 60 60)`} />
