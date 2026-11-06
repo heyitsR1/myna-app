@@ -216,3 +216,7 @@
     animation: none;
   }
 }
+.present-tab:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

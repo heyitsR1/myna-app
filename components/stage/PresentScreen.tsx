@@ -19,7 +19,8 @@ import { DECK_ORIGINS } from "./present-config";
  *
  *  H      hide the tabs and timer buttons
  *  T      start / pause the audience timer (shown from the first press)
- *  + / =  timer +10 s     ]  timer +20 s     R  reset and hide the timer
+ *  + / =  timer +10 s     ]  timer +20 s     R  hide and reset the timer
+ *  arrows move the slides on Slides, even when focus is on a tab button
  *  B      swap in the backup recording (and back); Shift+B restarts it
  *
  * Keys typed into an input inside a frame are ignored, so the inbox's
@@ -36,6 +37,8 @@ const MODES = [
 ] as const;
 
 type Mode = (typeof MODES)[number]["id"];
+
+const DECK_NAV_KEYS = ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "PageDown", "PageUp", " "];
 
 const BACKUP_SRC = "/present/backup.mp4";
 const TIMER_DEFAULT = 45_000;
@@ -164,6 +167,12 @@ export default function PresentScreen({ deckUrl }: { deckUrl: string }) {
   };
 
   const onPresentKey = useEffectEvent((key: string, shift: boolean) => {
+    // On Slides, arrows pressed while focus is out here (after clicking a
+    // tab, say) are passed down so the deck always moves.
+    if (DECK_NAV_KEYS.includes(key)) {
+      if (mode === "slides" && !backup) deckRef.current?.contentWindow?.postMessage({ type: "deck-key", key }, "*");
+      return;
+    }
     const hit = MODES.find((m) => m.key === key);
     if (hit) return pick(hit.id);
     switch (key) {
@@ -190,7 +199,13 @@ export default function PresentScreen({ deckUrl }: { deckUrl: string }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTyping(e.target)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+      // Arrows only matter out here on Slides; elsewhere they belong to the
+      // inbox, phone app, etc.
+      if (DECK_NAV_KEYS.includes(e.key)) {
+        if (e.view !== window) return;
+        e.preventDefault();
+      } else if (e.repeat) return;
       onPresentKey(e.key, e.shiftKey);
     };
     // Keys pressed while a same-origin frame has focus never reach this
@@ -328,10 +343,26 @@ export default function PresentScreen({ deckUrl }: { deckUrl: string }) {
         <button
           type="button"
           className="present-tab present-tab-timer"
-          aria-label={running ? "Pause timer" : "Start timer"}
-          onClick={toggleTimer}
+          aria-pressed={running}
+          onClick={() => !running && toggleTimer()}
         >
-          {running ? "❚❚" : "▶"}
+          Start
+        </button>
+        <button
+          type="button"
+          className="present-tab present-tab-timer"
+          disabled={!running}
+          onClick={() => running && toggleTimer()}
+        >
+          Pause
+        </button>
+        <button
+          type="button"
+          className="present-tab present-tab-timer"
+          disabled={!timer.shown}
+          onClick={() => setTimer(TIMER_IDLE)}
+        >
+          Hide
         </button>
         <button type="button" className="present-tab present-tab-timer" onClick={() => addTime(10_000)}>
           +10
