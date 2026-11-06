@@ -74,11 +74,11 @@ export default function WallScreen({ handle }: { handle: string }) {
           <span className={`wall-live ${stale ? "is-stale" : ""}`} aria-hidden="true" />
           <div>
             <div className="wall-title">Monso Eyewear</div>
-            <div className="wall-sub">Answered live by Maya, on Myna</div>
+            <div className="wall-sub">@{handle} · answered live by Maya, on Myna</div>
           </div>
         </div>
         <div className="wall-cta">
-          DM <strong>@{handle}</strong> on Instagram
+          Message us at <strong>myna.tailsgate.com/try</strong>
         </div>
       </header>
 

@@ -1,0 +1,88 @@
+.present {
+  position: fixed;
+  inset: 0;
+  background: #0d0d0c;
+  overflow: hidden;
+}
+
+.present-frame {
+  border: 0;
+  display: block;
+}
+.present-frame[hidden],
+.present-phone-stage[hidden],
+.present-tabs[hidden] {
+  display: none;
+}
+
+.present-live,
+.present-inbox {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+}
+
+/* Tabs float top-centre, small enough to ignore on the projector. */
+.present-tabs {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(30, 30, 28, 0.82);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+}
+.present-tab {
+  font: 600 13px/1 var(--font-geist), system-ui, sans-serif;
+  color: rgba(255, 255, 255, 0.7);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.present-tab[aria-pressed="true"] {
+  background: #fff;
+  color: #111;
+}
+@media (hover: hover) and (pointer: fine) {
+  .present-tab:hover:not([aria-pressed="true"]) {
+    color: #fff;
+  }
+}
+.present[data-mode="inbox"] .present-tabs {
+  background: rgba(20, 20, 18, 0.72);
+}
+
+/* The phone: a real 390×844 viewport, scaled to the projector's height. */
+.present-phone-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at 50% 40%, #2a2925 0%, #0d0d0c 70%);
+}
+.present-phone {
+  width: 414px;
+  height: 868px;
+  padding: 12px;
+  border-radius: 64px;
+  background: #1b1b1a;
+  box-shadow:
+    0 0 0 2px #3a3a37,
+    0 40px 90px rgba(0, 0, 0, 0.55);
+  transform: scale(var(--phone-scale, 1));
+}
+.present-phone-screen {
+  width: 390px;
+  height: 844px;
+  border-radius: 52px;
+  background: #fafaf9;
+}
