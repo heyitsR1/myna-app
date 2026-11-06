@@ -926,6 +926,12 @@ svg {
   gap: 8px;
   margin-top: 14px;
 }
+.order-cust {
+  margin-top: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--green, #047857);
+}
 
 /* signals */
 .sig-intent {

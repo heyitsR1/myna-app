@@ -115,4 +115,8 @@ export interface Order {
   status: "pending" | "confirmed" | "shipped" | "cancelled";
   created_at: string;
   confirmed_at: string | null;
+  /** Migration 010: the customer's order-check page. */
+  public_token?: string | null;
+  customer_confirmed_at?: string | null;
+  customer_edits?: { at: string; field: string; from: unknown; to: unknown }[] | null;
 }

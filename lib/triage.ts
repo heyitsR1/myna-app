@@ -82,14 +82,14 @@ const QUESTIONS = {
     "Read `customer_message` in the context of `conversation`. What does the shop need to do in response",
     {
       question:
-        "Answer a specific question it knows: the price of one named item, delivery, hours, payment methods, whether something is in stock, or return a greeting.",
+        "Answer a specific question it knows: the price of one named item, delivery, hours, payment methods, whether something is in stock, what offers or deals the shop is running this week, or return a greeting.",
       catalogue:
         "Show what is for sale. They asked what the shop has, for the list, the collection, or for prices generally, without naming one specific item. This includes romanised Nepali such as \"kati parcha?\", \"kati ho?\", \"dam kati?\" or \"k k cha?\" when no item is named.",
       buy: "Record an order. They want to place, change, or confirm a purchase of a specific item — including giving just a product code or name as their choice.",
       complaint:
         "Resolve a grievance: a late, wrong, missing or defective order, or a request for a refund, return, or exchange.",
       negotiation:
-        "Respond to a request for a discount, a lower price, or bulk / wholesale pricing. In Nepal \"last price?\", \"best price?\", \"final price?\", \"kam garnus\", \"sasto\" or \"discount milcha?\" all mean asking for a discount.",
+        "Respond to a request for a discount, a lower price, or bulk / wholesale pricing. In Nepal \"last price?\", \"best price?\", \"final price?\", \"kam garnus\", \"sasto\" or \"discount milcha?\" all mean asking for a discount. Asking what offers the shop has (\"any offers this week?\") is a question, not negotiation.",
       thanks:
         "Acknowledge thanks, praise, or positive feedback. The customer is not asking for anything new.",
       other:

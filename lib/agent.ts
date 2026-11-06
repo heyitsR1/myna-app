@@ -24,6 +24,7 @@ import type { RetrievedChunk } from "@/lib/rag";
 import { catalogueForPrompt, formatNpr, matchProduct } from "@/lib/orders";
 import type { Product } from "@/lib/types";
 import type { ImageData } from "@/lib/media";
+import { offersForPrompt } from "@/lib/offers";
 
 export interface HistoryEntry {
   role: "user" | "assistant";
@@ -94,6 +95,8 @@ export interface BookingResult {
   total?: number;
   itemName?: string;
   address?: string | null;
+  /** Public token for the customer's order-check page (/o/<token>). */
+  token?: string | null;
   /** What the customer is shown, built by our code: order number, item, total. */
   summary?: string;
   missing?: string[];
@@ -189,7 +192,7 @@ const TOOLS = [
   },
 ];
 
-function systemPrompt(brandName: string, toneNotes: string | null, chunks: RetrievedChunk[], products: Product[], pending: string, note: string | null): string {
+function systemPrompt(brandName: string, toneNotes: string | null, chunks: RetrievedChunk[], products: Product[], pending: string, note: string | null, firstContact: boolean): string {
   const context = chunks.length
     ? chunks.map((c, i) => `[${i + 1}] ${c.content}`).join("\n\n")
     : "(nothing in the shop guide matched this message)";
@@ -212,16 +215,20 @@ Photos customers send (you can see them):
 Facts:
 - Only use the catalogue and the shop guide below. Never invent prices, stock, discounts, delivery times or policies. If it isn't there, say you'll check with the owner and call handoff_to_owner.
 - You never give discounts or negotiate. Price questions get the listed price; discount requests go to the owner.
+- This week's offers are exactly these two, nothing else (no percentage off, no buy-2 deal, no festival offer this week):
+${offersForPrompt()}
+  They override the shop guide where it differs (delivery inside the valley is free this week). Mention them when someone asks about offers or deals, delivery charges, or is about to order. Never invent other offers. Asking for anything beyond them (a % off, a deal for 2) is a discount request: hand off.
 
 Doing things (use tools, don't just say it):
 - Showing products: show_price_list for the whole range, send_product_photos to show specific ones.
-- Booking: book_order only when they clearly pick a product and want it. After booking, the order summary is added automatically below your text, so write one warm line and, if address or phone is missing, ask for it naturally.
+- Booking: book_order only when they clearly pick a product and want it. After booking, the order summary, a link where they can check their details, and "the owner will confirm shortly" are all added automatically. So write ONE short warm sentence (you may mention the free case or free valley delivery), never a link, and never talk about confirming; if address or phone is missing, ask for it.
 - Owner: handoff_to_owner for discounts, complaints, refunds, bulk, custom requests or anything you're unsure about.
 ${toneNotes ? `\nOwner's tone notes:\n${toneNotes}\n` : ""}
 Catalogue (exact NPR prices):
 ${catalogueForPrompt(products)}
 
 This customer's open order: ${pending}
+${firstContact ? `\nThis is the customer's first message to the shop. Just answer it: one short line on what you can do for them (photos, prices and delivery, this week's offers, booking) is added after your text automatically, so don't describe your abilities yourself or end with a list of options.\n` : ""}
 ${note ? `\nAbout this customer right now: ${note}\n` : ""}
 Shop guide (most relevant parts):
 ${context}`;
@@ -306,12 +313,14 @@ export async function runMaya(input: {
   pendingOrder: string;
   /** A line about the customer's mood from triage, e.g. that they sound impatient. */
   note?: string | null;
+  /** No earlier Maya reply in this chat: she adds one line on what she can do. */
+  firstContact?: boolean;
   tools: AgentTools;
   /** Epoch ms. Calls are aborted at this point. */
   deadline: number;
 }): Promise<AgentResult> {
   const { products } = input.tools;
-  const system = systemPrompt(input.brandName, input.toneNotes, input.chunks, products, input.pendingOrder, input.note ?? null);
+  const system = systemPrompt(input.brandName, input.toneNotes, input.chunks, products, input.pendingOrder, input.note ?? null, input.firstContact ?? false);
   const messages = toApiMessages(input.history);
   if (messages.length === 0 || messages[messages.length - 1].role !== "user") {
     throw new Error("conversation does not end with a customer message");
@@ -388,7 +397,7 @@ async function loop(
         out = booking.ok
           ? `Booked. This summary is shown to the customer under your text:\n${booking.summary}\n${
               booking.missing?.length ? `Still missing: ${booking.missing.join(" and ")} — ask for it.` : "Nothing missing."
-            } Write one short warm line; do not repeat the summary.`
+            } Write ONE short warm sentence; do not repeat the summary, add a link, or mention confirming at all (a check-your-details link and "the owner will confirm shortly" are added for you).`
           : `Booking failed: ${booking.error}. Tell the customer kindly, or hand off to the owner.`;
       } else if (call.name === "handoff_to_owner") {
         result.handoff = String(call.input.reason ?? "Maya handed off");

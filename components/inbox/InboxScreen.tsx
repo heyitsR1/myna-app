@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { AiSource, Channel, Conversation, Message, Order, OrderItem } from "@/lib/types";
+import { customerCheckLine } from "@/components/phone/format";
 
 interface InboxConversation extends Conversation {
   channel_connections: { channel: Channel; external_account_id: string } | null;
@@ -665,6 +666,7 @@ export default function InboxScreen() {
                         {o.phone && <span className="num">{o.phone}</span>}
                       </div>
                     )}
+                    {customerCheckLine(o) && <div className="order-cust">{customerCheckLine(o)}</div>}
                     {o.status === "pending" && (
                       <div className="order-actions">
                         <button

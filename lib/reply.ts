@@ -14,7 +14,8 @@ import {
   listProducts,
   matchProduct,
 } from "@/lib/orders";
-import { ABUSIVE, DISCOUNT_ASK } from "@/lib/moderation";
+import { ABUSIVE, DISCOUNT_ASK, isOffersQuestion } from "@/lib/moderation";
+import { offersForPrompt } from "@/lib/offers";
 import { describeTriage, triageMessage, verdictFor, type HoldKind, type Triage } from "@/lib/triage";
 import type { AiSource, Channel, Message, OrderItem, Product } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -90,6 +91,9 @@ Answer ONLY from the catalogue and brand context below. Never invent prices, pol
 
 Catalogue (exact prices in NPR — quote these, nothing else):
 ${catalogueForPrompt(products)}
+
+This week's offers (the only ones; never invent others, never a % or multi-buy discount):
+${offersForPrompt()}
 
 Brand context:
 ${context}
@@ -665,7 +669,7 @@ async function replyPipeline(conversationId: string, inboundMessageId: string, t
   if (triage) {
     console.log(`[triage] ${describeTriage(triage)} (${conversationId})`);
     const verdict = verdictFor(triage);
-    if (verdict.hold) {
+    if (verdict.hold && !(verdict.kind === "negotiation" && isOffersQuestion(inbound.body))) {
       triageHold = verdict.reason;
       holdKind = verdict.kind ?? "judgment";
     }
@@ -781,7 +785,7 @@ async function replyPipeline(conversationId: string, inboundMessageId: string, t
 
   if (decision.intent === "catalogue") {
     // The model's one-line intro sometimes ends in ":," or trails off; normalise it.
-    const intro = (text.split("\n")[0] || "Namaste! Here is what we have right now").replace(/[\s:,;.\-–—]+$/u, "");
+    const intro = (text.split("\n")[0] || "Namaste! Here is what we have right now").replace(/[\s:,;.।\-–—]+$/u, "");
     text = products.length
       ? `${intro}:\n\n${formatCatalogue(products)}\n\nReply with the code to book one 😊`
       : `${intro}\n\n(The catalogue is being updated — a team member will share it shortly.)`;
@@ -814,7 +818,7 @@ async function replyPipeline(conversationId: string, inboundMessageId: string, t
       ? await supabase.from("orders").update(fields).eq("id", sameSku.id).select().single()
       : await supabase
           .from("orders")
-          .insert({ brand_id: brand.id, conversation_id: conversationId, status: "pending", ...fields })
+          .insert({ brand_id: brand.id, conversation_id: conversationId, status: "pending", public_token: newOrderToken(), ...fields })
           .select()
           .single();
     if (orderError || !order) {
@@ -831,8 +835,12 @@ async function replyPipeline(conversationId: string, inboundMessageId: string, t
       `Order #${order.order_number} ${sameSku ? "updated" : "booked"} ✅\n\n` +
       `${product.name}\n` +
       `${product.sku} · Qty ${quantity} · ${formatNpr(total)}\n\n` +
-      (missing.length ? `Please send your ${missing.join(" and ")} so we can arrange delivery. ` : "") +
-      `We'll confirm it with you shortly 🙏`;
+      (missing.length ? `Please send your ${missing.join(" and ")} so we can arrange delivery.\n\n` : "") +
+      checkLinkLine(await ensureOrderToken(supabase, order), customerLang(thread));
+  }
+
+  if (isFirstContact(history) && (decision.intent === "answer" || decision.intent === "catalogue")) {
+    text = withMenuLine(text, decision.intent === "catalogue", customerLang(thread));
   }
 
   // ── Superseded? ─────────────────────────────────────────────────────────
@@ -859,6 +867,62 @@ async function replyPipeline(conversationId: string, inboundMessageId: string, t
     .from("conversations")
     .update({ status, last_message_at: new Date().toISOString() })
     .eq("id", conversationId);
+}
+
+// ── The customer's order-check link ────────────────────────────────────────
+
+const PUBLIC_URL = (process.env.PUBLIC_APP_URL ?? "https://myna.tailsgate.com").replace(/\/$/, "");
+
+/** 32 url-safe characters from 24 random bytes: unguessable, unrelated to the order number. */
+export function newOrderToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** The order's token, minting one for an order booked before tokens existed. Null if that fails. */
+async function ensureOrderToken(supabase: SupabaseClient, order: { id: string; public_token?: string | null }): Promise<string | null> {
+  if (order.public_token) return order.public_token;
+  const token = newOrderToken();
+  const { error } = await supabase.from("orders").update({ public_token: token }).eq("id", order.id).is("public_token", null);
+  if (error) {
+    console.error("[reply] could not set order token:", error.message);
+    return null;
+  }
+  return token;
+}
+
+/** The deterministic close of every booking message. No link if the token couldn't be saved. */
+function checkLinkLine(token: string | null, lang: Lang): string {
+  const link = token ? `${PUBLIC_URL}/o/${token}` : null;
+  if (lang === "deva") return link ? `आफ्नो विवरण यहाँ जाँच गर्नुहोस्: ${link}\nसाहुजीले छिट्टै कन्फर्म गर्नुहुन्छ 🙏` : "साहुजीले छिट्टै कन्फर्म गर्नुहुन्छ 🙏";
+  if (lang === "rom") return link ? `Aafno details yaha check garnus: ${link}\nOwner le chhittai confirm garnuhunchha 🙏` : "Owner le chhittai confirm garnuhunchha 🙏";
+  return link ? `Please check your details here: ${link}\nThe owner will confirm shortly 🙏` : "The owner will confirm shortly 🙏";
+}
+
+/**
+ * What Maya can do, said once: after her answer to a customer's first
+ * message. Fixed text, so it is always there, always one line, and in the
+ * customer's script. After the price list a shorter version, since the list
+ * already invites them to book.
+ */
+const MENU_LINE: Record<Lang, string> = {
+  en: "I can show you the collection with photos, check prices and delivery, tell you about this week's offers, or book an order for you 🙂",
+  rom: "Ma photo sahit collection dekhauna, price ra delivery bataauna, yo haptako offers bataauna, ya order book garna sakchhu 🙂",
+  deva: "म फोटोसहित सङ्ग्रह देखाउन, मूल्य र डेलिभरी बताउन, यो हप्ताका अफर बताउन वा अर्डर बुक गर्न सक्छु 🙂",
+};
+const MENU_AFTER_LIST: Record<Lang, string> = {
+  en: "I can also send photos, check delivery or tell you this week's offers 🙂",
+  rom: "Photo pathauna, delivery bataauna ya yo haptako offers bataauna pani sakchhu 🙂",
+  deva: "फोटो पठाउन, डेलिभरी बताउन वा यो हप्ताका अफर बताउन पनि सक्छु 🙂",
+};
+
+function withMenuLine(text: string, afterList: boolean, lang: Lang): string {
+  return `${text.trim()}\n\n${(afterList ? MENU_AFTER_LIST : MENU_LINE)[lang]}`;
+}
+
+/** Maya has not said anything in this chat yet (holding lines and failed sends count as saying something). */
+function isFirstContact(history: Message[]): boolean {
+  return !history.some((m) => m.direction === "outbound");
 }
 
 // ── Claude path ────────────────────────────────────────────────────────────
@@ -896,7 +960,8 @@ function hardHold(body: string, triage: Triage | null): { reason: string; kind: 
   if (DISCOUNT_ASK.test(body)) return { reason: "discount ask — owner decides", kind: "negotiation" };
   if (triage) {
     if (triage.intent === "complaint") return { reason: "complaint — owner should answer", kind: "complaint" };
-    if (triage.intent === "negotiation") return { reason: "price negotiation — owner decides discounts", kind: "negotiation" };
+    // "Any offers this week?" is answered from the real offers, not held.
+    if (triage.intent === "negotiation" && !isOffersQuestion(body)) return { reason: "price negotiation — owner decides discounts", kind: "negotiation" };
     if (triage.asksForHuman >= 0.5) return { reason: "customer asked for a person", kind: "person" };
     if (triage.frustration >= ANGRY) return { reason: `customer sounds angry (${triage.frustration.toFixed(1)}/2)`, kind: "judgment" };
   } else if (SENSITIVE.test(body)) {
@@ -972,10 +1037,11 @@ async function replyWithClaude(ctx: {
       ? await supabase.from("orders").update(fields).eq("id", same.id).select().single()
       : await supabase
           .from("orders")
-          .insert({ brand_id: brand.id, conversation_id: conversationId, status: "pending", ...fields })
+          .insert({ brand_id: brand.id, conversation_id: conversationId, status: "pending", public_token: newOrderToken(), ...fields })
           .select()
           .single();
     if (error || !order) return { ok: false, error: "could not save the order" };
+    const token = await ensureOrderToken(supabase, order);
     const missing = [!order.delivery_address && "delivery address", !order.phone && "phone number"].filter(Boolean) as string[];
     return {
       ok: true,
@@ -985,6 +1051,7 @@ async function replyWithClaude(ctx: {
       total,
       itemName: quantity > 1 ? `${product.name} ×${quantity}` : product.name,
       address: order.delivery_address,
+      token,
       summary: `Order #${order.order_number} ${same ? "updated" : "booked"} ✅\n${product.name}\n${product.sku} · Qty ${quantity} · ${formatNpr(total)}`,
     };
   };
@@ -997,6 +1064,7 @@ async function replyWithClaude(ctx: {
     history: await historyWithPhotos(history),
     pendingOrder: pendingLine,
     note: moodNote(triage),
+    firstContact: isFirstContact(history),
     tools: { products, book },
     deadline: turn.modelDeadline,
   });
@@ -1016,10 +1084,18 @@ async function replyWithClaude(ctx: {
 
   let text = said;
   if (result.showList && products.length) {
-    const intro = text.replace(/[\s:,;.\-–—]+$/u, "");
+    const intro = text.replace(/[\s:,;.।\-–—]+$/u, "");
     text = `${intro}${intro && !/[?!]$/u.test(intro) ? ":" : ""}\n\n${formatCatalogue(products)}\n\nReply with the code to book one 😊`.trim();
   }
-  if (result.booking?.summary) text = `${result.booking.summary}\n\n${text}`.trim();
+  // First message in the chat: one line on what Maya can do. Not on a
+  // booking (they're already ordering) or a handoff (the owner is coming).
+  if (isFirstContact(history) && !result.booking && !result.handoff && text && !isOffersQuestion(inbound.body)) {
+    text = withMenuLine(text, result.showList && products.length > 0, customerLang(thread));
+  }
+  if (result.booking?.summary) {
+    text = `${result.booking.summary}\n\n${text}`.trim();
+    text = `${text}\n\n${checkLinkLine(result.booking.token ?? null, customerLang(thread))}`;
+  }
   // Nothing to say is a failure, not a choice: Llama or the guard picks it up.
   if (!text && result.photos.length === 0) throw new Error("Claude returned nothing");
 

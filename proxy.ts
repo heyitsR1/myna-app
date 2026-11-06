@@ -20,6 +20,9 @@ import {
  *  - `/api/webhooks/*` — Meta must reach it unauthenticated; that route
  *    authenticates every request by HMAC instead (X-Hub-Signature-256).
  *  - `/try` — the public page behind the summit QR code.
+ *  - `/o/<token>` and `/api/order-link/<token>` — the customer's order-check
+ *    page Maya links to after a booking. The random token is the key; it
+ *    shows that one order and nothing else (lib/order-link.ts).
  *  - `/privacy` and `/data-deletion` — Meta's App Review team must be able
  *    to open these without credentials.
  *  - `/login` and `/api/auth/*` — the way in.
@@ -81,6 +84,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api/webhooks|api/auth|login|try|privacy|data-deletion|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons/).*)",
+    "/((?!api/webhooks|api/auth|api/order-link/|login|try|o/|privacy|data-deletion|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons/).*)",
   ],
 };

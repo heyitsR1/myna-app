@@ -1,0 +1,197 @@
+/* /o/<token>: the customer's order check. Same cream, ink and Inter Tight as
+   /try. Opened almost always inside Instagram / WhatsApp / Messenger in-app
+   browsers, so: one column, svh not vh, 16px inputs (no focus zoom),
+   press feedback on :active, hover only where a mouse exists. */
+
+html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+
+.oc {
+  --o-bg: #eee7db;
+  --o-ink: #1b1a17;
+  --o-ink-2: #5a5348;
+  --o-line: #d8cebe;
+  --o-paper: #f8f4ec;
+  --o-green: #2f6b3f;
+  --o-amber: #8a5a12;
+
+  min-height: 100svh;
+  background: var(--o-bg);
+  color: var(--o-ink);
+  font-family: var(--font-order), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.oc h1, .oc h2, .oc p, .oc dl, .oc dd, .oc ul { margin: 0; padding: 0; }
+
+.oc-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(28px + env(safe-area-inset-bottom, 0px));
+  display: grid;
+  gap: 12px;
+}
+
+.oc-bar { display: flex; align-items: baseline; justify-content: space-between; padding: 0 4px 4px; }
+.oc-mark { font-size: 22px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; line-height: 1; }
+.oc-no { font-size: 14px; font-weight: 600; color: var(--o-ink-2); font-variant-numeric: tabular-nums; }
+
+.oc-card {
+  background: var(--o-paper);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(27, 26, 23, 0.08);
+}
+.oc-card h2 { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--o-ink-2); margin-bottom: 8px; }
+
+.oc-item { display: flex; gap: 14px; align-items: center; }
+.oc-photo {
+  flex: none;
+  width: 104px;
+  height: 104px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--o-bg);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+.oc-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.oc-item-text { display: grid; gap: 2px; min-width: 0; }
+.oc-sku { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: var(--o-ink-2); }
+.oc h1 { font-size: 22px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; }
+.oc-unit { font-size: 15px; color: var(--o-ink-2); font-variant-numeric: tabular-nums; }
+
+.oc-rows { margin-top: 14px; display: grid; }
+.oc-rows > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  min-height: 44px;
+  padding: 8px 0;
+  border-top: 1px solid var(--o-line);
+}
+.oc-rows.plain { margin-top: 0; }
+.oc-rows.plain > div:first-child { border-top: 0; }
+.oc-rows dt { color: var(--o-ink-2); font-size: 15px; flex: none; }
+.oc-rows dd { font-weight: 600; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.oc-total dt, .oc-total dd { font-size: 19px; font-weight: 800; color: var(--o-ink); }
+.oc-gap { color: var(--o-amber); font-weight: 600; }
+
+.oc-offers { list-style: none; margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+.oc-offers li {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #e3efe2;
+  color: var(--o-green);
+}
+.oc-offers li::before { content: "✓ "; }
+
+.oc-stepper { display: inline-flex; align-items: center; gap: 4px; }
+.oc-stepper button {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--o-line);
+  background: #fff;
+  color: var(--o-ink);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 100ms ease-out, background 100ms;
+}
+.oc-stepper button:active { transform: scale(0.94); background: var(--o-bg); }
+.oc-stepper button:disabled { opacity: 0.35; }
+.oc-stepper output { min-width: 32px; text-align: center; font-size: 19px; font-weight: 700; }
+
+.oc-form { display: grid; gap: 12px; }
+.oc-name { font-weight: 700; }
+.oc-form label { display: grid; gap: 6px; }
+.oc-form label span { font-size: 14px; font-weight: 600; color: var(--o-ink-2); }
+.oc-form input,
+.oc-form textarea {
+  font: inherit;
+  font-size: 16px; /* under 16px iOS zooms the page on focus */
+  color: var(--o-ink);
+  background: #fff;
+  border: 1px solid var(--o-line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.oc-form input:focus,
+.oc-form textarea:focus { outline: 2px solid var(--o-ink); outline-offset: 1px; border-color: transparent; }
+
+.oc-status { text-align: center; font-size: 14px; font-weight: 600; padding: 2px 8px; }
+.oc-status.wait { color: var(--o-amber); }
+.oc-status.ok { color: var(--o-green); }
+.oc-status.off { color: #9b2c2c; }
+
+.oc-error { text-align: center; color: #9b2c2c; font-weight: 600; font-size: 15px; }
+.oc-locked { text-align: center; color: var(--o-ink-2); font-size: 15px; padding: 4px 8px; }
+
+.oc-actions { display: grid; gap: 10px; }
+.oc-btn {
+  min-height: 56px;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  border: 0;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 100ms ease-out, background 100ms, opacity 100ms;
+}
+.oc-btn.primary {
+  background: var(--o-ink);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 1px 2px rgba(27, 26, 23, 0.25), 0 6px 14px -6px rgba(27, 26, 23, 0.45);
+}
+.oc-btn.ghost { background: transparent; color: var(--o-ink); border: 1.5px solid var(--o-ink); }
+.oc-btn:active { transform: scale(0.98); }
+.oc-btn.primary:active { background: #000; }
+.oc-btn.ghost:active { background: rgba(27, 26, 23, 0.06); }
+.oc-btn:disabled { opacity: 0.5; }
+@media (hover: hover) and (pointer: fine) {
+  .oc-btn.primary:hover { background: #000; }
+  .oc-btn.ghost:hover { background: rgba(27, 26, 23, 0.05); }
+}
+
+.oc-thanks {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: var(--o-ink);
+  color: #fff;
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+.oc-thanks b { display: block; font-size: 18px; }
+.oc-thanks span { font-size: 15px; opacity: 0.85; }
+.oc-tick {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #3f8f55;
+  display: grid;
+  place-items: center;
+}
+.oc-tick svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+
+.oc-foot { text-align: center; font-size: 14px; color: var(--o-ink-2); padding-top: 4px; }
+
+.oc-missing { background: var(--o-paper); border-radius: 18px; padding: 24px 18px; display: grid; gap: 8px; }
+.oc-missing p { color: var(--o-ink-2); }

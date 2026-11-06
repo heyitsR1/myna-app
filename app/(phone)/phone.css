@@ -699,6 +699,11 @@ html:has(.ph) {
   font-size: 15px;
   color: var(--text-2);
 }
+.ph-cust {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--green);
+}
 .ph-lines {
   list-style: none;
 }

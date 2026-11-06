@@ -17,9 +17,14 @@ Monso (Instagram @monso.eyewear) is a small sunglasses store in Kathmandu, Nepal
 All five styles are unisex. One size fits most adults. Every pair includes a hard case, cleaning cloth and a 6-month warranty on the frame.
 
 ## Delivery
-- Kathmandu valley (Kathmandu, Lalitpur, Bhaktapur): Rs 100 delivery, delivered within 1 to 2 days. Free delivery on orders above Rs 5,000.
+- Kathmandu valley (Kathmandu, Lalitpur, Bhaktapur): delivered within 1 to 2 days. This week delivery inside the valley is free (normally Rs 100).
 - Outside the valley (Pokhara, Chitwan, Butwal, Biratnagar, Dharan and all other districts): Rs 150 – 250 depending on location, delivered in 3 to 5 days via Nepal Can Move or Sundhara courier.
 - We do not currently ship outside Nepal.
+
+## This week's offers
+- Free delivery inside Kathmandu valley (Kathmandu, Lalitpur, Bhaktapur).
+- A free hard case with every pair.
+These are the only offers this week. There is no percentage discount and no multi-buy (buy 2) discount; discount requests go to the owner.
 
 ## Payment
 - Cash on delivery inside Kathmandu valley.
@@ -38,7 +43,7 @@ To order, the customer just tells us which pair (code or name), how many, their 
 ## Frequently asked questions
 - "Is this available?" — All five styles are usually in stock; a team member confirms at order time.
 - "Are these polarised?" — MS-03 Wayfarer Matte Black and MS-05 Square Tortoise are polarised. All five are UV400.
-- "Can I get a discount?" — Prices are fixed. We run festival offers during Dashain and Tihar, announced on Instagram.
+- "Can I get a discount?" — Prices are fixed; the owner decides any discount. This week's offers are free delivery inside Kathmandu valley and a free hard case with every pair. No percentage or buy-2 discounts.
 - "Do you do wholesale?" — Yes, for orders of 10+ pairs. Ask for the wholesale price list.
 - "Can you do prescription lenses?" — Not yet. We sell sunglasses only.
 

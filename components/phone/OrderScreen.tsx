@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ago, channelOf, customerOf, npr, type PhoneOrder } from "@/components/phone/format";
+import { ago, channelOf, customerCheckLine, customerOf, npr, type PhoneOrder } from "@/components/phone/format";
 
 /**
  * Where a "New order" notification lands. Everything the owner needs to say
@@ -20,6 +20,33 @@ export default function OrderScreen({ initial }: { initial: PhoneOrder }) {
   useEffect(() => () => {
     if (disarm.current) clearTimeout(disarm.current);
   }, []);
+
+  // The customer may check or fix the details on their order page while the
+  // owner has this open: pick that up without a reload. Status stays ours.
+  useEffect(() => {
+    if (order.status !== "pending") return;
+    const timer = setInterval(async () => {
+      if (document.hidden) return;
+      const res = await fetch(`/api/orders/${order.id}`, { cache: "no-store" }).catch(() => null);
+      const data = res?.ok ? ((await res.json().catch(() => null)) as { order?: Partial<PhoneOrder> } | null) : null;
+      if (!data?.order) return;
+      const fresh = data.order;
+      setOrder((o) =>
+        o.status !== "pending"
+          ? o
+          : {
+              ...o,
+              customer_confirmed_at: fresh.customer_confirmed_at ?? o.customer_confirmed_at,
+              customer_edits: fresh.customer_edits ?? o.customer_edits,
+              delivery_address: fresh.delivery_address ?? o.delivery_address,
+              phone: fresh.phone ?? o.phone,
+              items: fresh.items ?? o.items,
+              total: fresh.total ?? o.total,
+            },
+      );
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [order.id, order.status]);
 
   const channel = channelOf(order);
   const customer = customerOf(order);
@@ -92,6 +119,7 @@ export default function OrderScreen({ initial }: { initial: PhoneOrder }) {
           <div className="ph-hero-sub">
             {customer} · via {channel.label} · {ago(order.created_at)} ago
           </div>
+          {customerCheckLine(order) && <div className="ph-cust">{customerCheckLine(order)}</div>}
           {order.conversation_id && (
             <Link href={`/m/chats/${order.conversation_id}`} className="ph-btn small ph-hero-chat">
               Open the chat

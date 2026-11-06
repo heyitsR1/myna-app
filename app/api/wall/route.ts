@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { DISCOUNT_ASK, isAbusive, maskContact } from "@/lib/moderation";
+import { ABUSIVE, DISCOUNT_ASK, isAbusive, maskContact } from "@/lib/moderation";
 import type { Channel, Message, Order, OrderItem } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -43,7 +43,9 @@ type Row = {
 function firstName(row: Row): string {
   const raw = row.customer_name?.replace(/\(@[^)]*\)/, "").trim();
   const first = raw?.split(/\s+/)[0];
-  return first || `Guest ${row.external_customer_id.slice(-3)}`;
+  // A profile name is customer text too: a rude one never reaches the screen.
+  if (!first || ABUSIVE.test(raw ?? "")) return `Guest ${row.external_customer_id.slice(-3)}`;
+  return first;
 }
 
 function holdLabel(body: string, triage: Message["triage"]): string {

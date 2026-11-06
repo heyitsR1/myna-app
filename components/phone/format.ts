@@ -17,6 +17,8 @@ export interface PhoneOrder {
   confirmed_by?: "owner" | "maya" | null;
   source?: "dm" | "website" | null;
   conversation_id?: string | null;
+  customer_confirmed_at?: string | null;
+  customer_edits?: { at: string; field: string; from: unknown; to: unknown }[] | null;
   conversations?: { customer_name: string | null; channel_connections: { channel: ChannelName } | null } | null;
 }
 
@@ -41,6 +43,17 @@ export function channelOf(order: PhoneOrder): { key: ChannelName | "web"; label:
   if (channel === "whatsapp") return { key: channel, label: "WhatsApp" };
   if (channel === "messenger") return { key: channel, label: "Messenger" };
   return { key: "web", label: "DM" };
+}
+
+/**
+ * "Customer checked the details ✓", plus what they changed on the order-check
+ * page (/o/<token>). Null until they have opened it and confirmed. This is
+ * the customer's check, not a confirmation: the owner still confirms.
+ */
+export function customerCheckLine(order: Pick<PhoneOrder, "customer_confirmed_at" | "customer_edits">): string | null {
+  if (!order.customer_confirmed_at) return null;
+  const fields = [...new Set((order.customer_edits ?? []).map((e) => e.field))];
+  return `Customer checked the details ✓${fields.length ? ` · changed ${fields.join(", ")}` : ""}`;
 }
 
 export function customerOf(order: PhoneOrder): string {
