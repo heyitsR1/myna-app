@@ -1639,7 +1639,7 @@ html.projector .app {
 }
 .convo.sel {
   background: var(--surface);
-  box-shadow: var(--shadow-sm), 0 0 0 1px var(--brand-line), inset 3px 0 0 var(--brand);
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--brand-line);
 }
 .live-dot {
   background: var(--brand-live);

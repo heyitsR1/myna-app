@@ -1886,17 +1886,8 @@ html:has(.ph) {
 
 /* Maya: deep green instead of the amber-to-pink gradient */
 .ph-maya {
-  background:
-    radial-gradient(120% 90% at 100% 0%, rgba(47, 138, 92, 0.38), transparent 55%),
-    radial-gradient(90% 80% at 0% 100%, rgba(21, 80, 54, 0.6), transparent 60%),
-    var(--brand-deep);
-  box-shadow: 0 12px 32px -12px rgba(16, 38, 27, 0.5);
-}
-.ph-maya-big {
-  font-family: var(--font-dela), var(--sans);
-  font-size: 34px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  background: var(--brand-deep);
+  box-shadow: none;
 }
 .ph-maya-spark,
 .ph-feed-dot.ai {
@@ -1912,7 +1903,7 @@ html:has(.ph) {
   color: var(--brand);
 }
 .ph-bubble.out.ai {
-  background: linear-gradient(160deg, #1b6142, var(--brand) 55%, #12432d);
+  background: var(--brand);
 }
 .ph-composer textarea:focus {
   border-color: var(--brand);
@@ -1925,3 +1916,8 @@ html:has(.ph) {
   -webkit-user-drag: none;
 }
 
+
+/* The phone app is an iPhone app: use the iPhone's own type. */
+.ph {
+  font-family: -apple-system, "SF Pro Text", system-ui, "Helvetica Neue", sans-serif;
+}

@@ -305,7 +305,18 @@ export default function PresentScreen({ deckUrl }: { deckUrl: string }) {
       />
       <div className="present-phone-stage" {...view("phone")}>
         <div className="present-phone">
-          <iframe data-same-origin className="present-frame present-phone-screen" src="/m" title="Owner phone app" />
+          <div className="present-phone-screen">
+            <div className="present-phone-status" aria-hidden>
+              <span>9:41</span>
+              <i className="present-phone-island" />
+              <span className="present-phone-icons">
+                <svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg>
+                <svg viewBox="0 0 27 13" width="27" height="13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".4" /><rect x="2" y="2" width="18" height="9" rx="2" /><rect x="25" y="4.5" width="1.5" height="4" rx=".75" opacity=".4" /></svg>
+              </span>
+            </div>
+            <iframe data-same-origin className="present-frame present-phone-app" src="/m" title="Owner phone app" />
+            <div className="present-phone-home" aria-hidden><i /></div>
+          </div>
         </div>
       </div>
 

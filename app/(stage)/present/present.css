@@ -225,3 +225,60 @@
   opacity: 0.35;
   cursor: default;
 }
+
+/* Inside the phone: a status bar and home indicator like a real iPhone, so
+   the app never runs under the rounded corners. */
+.present-phone-screen {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fafaf9;
+}
+.present-phone-status {
+  flex: none;
+  height: 54px;
+  padding: 0 30px 0 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #111;
+  font: 600 16px/1 -apple-system, "SF Pro Text", system-ui, sans-serif;
+  position: relative;
+}
+.present-phone-island {
+  position: absolute;
+  left: 50%;
+  top: 11px;
+  width: 122px;
+  height: 34px;
+  margin-left: -61px;
+  border-radius: 20px;
+  background: #000;
+}
+.present-phone-icons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.present-phone-icons svg {
+  fill: currentColor;
+}
+.present-phone-app {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  background: #fafaf9;
+}
+.present-phone-home {
+  flex: none;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+}
+.present-phone-home i {
+  width: 134px;
+  height: 5px;
+  border-radius: 3px;
+  background: #111;
+}
