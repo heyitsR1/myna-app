@@ -1,402 +1,305 @@
 /*
- * Projector wall, dressed like the summit deck: white paper, Myna ink green,
- * one hot orange, Dela Gothic for numbers and Atkinson Hyperlegible for
- * everything read from the back of the hall. Sizes are in vw so the same
- * layout fills a 1280×720 projector, the /present iframe and a 4K screen.
+ * Projector wall for a hall, read from 15 m. Same calm as /try: cream paper,
+ * near-black ink, one clay accent that only ever means "order booked" or
+ * "live". One grotesk (Inter Tight), heavy weights, no caps labels.
  *
- * Orange means "Maya" or "live"; it never decorates.
+ * Every size is written in 1080p pixels times --px, so the layout is exactly
+ * as designed at 1920×1080 (the /present iframe) and scales on any screen.
+ * Floor: 28px for anything, 40px+ for what people say.
  */
 .wall {
-  --w-ink: #155036;
-  --w-ink-deep: #0f3d29;
-  --w-hot: #e8552b;
-  --w-paper: #ffffff;
-  --w-mist: #f3f6f4;
-  --w-bubble: #eef1ef;
-  --w-text: #13241c;
-  --w-mute: #6f8178;
-  --w-line: #dfe6e2;
-  --w-display: var(--font-wall-display), "Arial Black", sans-serif;
+  --px: min(calc(100vw / 1920), calc(100vh / 1080));
+  --w-bg: #efe8dc;
+  --w-paper: #f8f4ec;
+  --w-ink: #1b1a17;
+  --w-ink-2: #4f493f;
+  --w-ink-3: #7a7062;
+  --w-line: #d8cebe;
+  --w-accent: #b4532a;
 
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-columns: 24vw minmax(0, 1fr) 24vw;
-  background: var(--w-paper);
-  color: var(--w-text);
-  font-family: var(--font-wall-text), system-ui, sans-serif;
-  font-size: 1.15vw;
-  line-height: 1.35;
+  grid-template-columns: minmax(0, 1fr) calc(392 * var(--px));
+  gap: calc(80 * var(--px));
+  padding: calc(64 * var(--px)) calc(96 * var(--px)) calc(64 * var(--px));
+  background: var(--w-bg);
+  color: var(--w-ink);
+  font-family: var(--font-wall), "Helvetica Neue", Arial, sans-serif;
+  font-size: calc(28 * var(--px));
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   overflow: hidden;
   cursor: none;
+  -webkit-font-smoothing: antialiased;
+}
+.wall p,
+.wall ul {
+  margin: 0;
+  padding: 0;
 }
 .wall .num { font-variant-numeric: tabular-nums; }
+.wall-nowrap { white-space: nowrap; }
 
-/* ── left: brand, three numbers, the way in ── */
-.wall-side {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 2.6vw 2.4vw 2.4vw;
-  background: var(--w-ink);
-  color: #fff;
-}
-.wall-brand { display: flex; flex-direction: column; gap: 0.9vw; }
-.wall-logo {
-  font-family: var(--w-display);
-  font-size: 3.4vw;
-  line-height: 0.9;
-  letter-spacing: -0.03em;
-}
-.wall-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6vw;
-  font-size: 1vw;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.78);
-}
-.wall-live i {
-  width: 0.7vw;
-  height: 0.7vw;
-  border-radius: 50%;
-  background: var(--w-hot);
-  animation: wall-pulse 2.4s ease-out infinite;
-}
-.wall-live.is-stale i { background: rgba(255, 255, 255, 0.4); animation: none; }
-
-.wall-stats {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2.2vw;
-  padding: 2vw 0;
-}
-.wall-stat-value {
-  font-family: var(--w-display);
-  font-size: 5.6vw;
-  line-height: 0.95;
-  letter-spacing: -0.04em;
-}
-.wall-stat.is-hot .wall-stat-value { color: #ff8a63; }
-.wall-stat.is-empty .wall-stat-value { opacity: 0.35; }
-.wall-stat-label {
-  margin-top: 0.4vw;
-  font-size: 1.35vw;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.82);
-}
-.wall-stat-note {
-  margin-top: 0.15vw;
-  font-size: 1vw;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.wall-cta {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  column-gap: 1.1vw;
-  row-gap: 0.8vw;
-  padding: 1vw;
-  border-radius: 1vw;
-  background: #fff;
-  color: var(--w-ink);
-}
-.wall-cta img { width: 6.4vw; height: 6.4vw; display: block; }
-.wall-cta-lead { font-size: 1.45vw; font-weight: 700; line-height: 1.12; }
-.wall-cta-lead span { display: block; font-size: 0.95vw; color: var(--w-mute); }
-.wall-cta-url {
-  grid-column: 1 / -1;
-  padding-top: 0.7vw;
-  border-top: 1px solid var(--w-line);
-  font-size: 1.2vw;
-  font-weight: 700;
-  line-height: 1.15;
-}
-
-/* ── middle: the conversations ── */
-.wall-col-title {
-  display: flex;
-  align-items: baseline;
-  gap: 0.7vw;
-  height: 2vw;
-  margin: 0 0 1.4vw;
-  font-size: 1vw;
-  line-height: 2vw;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--w-mute);
-}
-.wall-col-count {
-  font-family: var(--w-display);
-  font-size: 1.6vw;
-  line-height: 2vw;
-  letter-spacing: -0.02em;
-  color: var(--w-ink);
-}
-
+/* ── the feed: newest across the top and largest, two quieter ones below ── */
 .wall-feed {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-content: start;
+  column-gap: calc(56 * var(--px));
+  row-gap: calc(48 * var(--px));
   min-height: 0;
-  padding: 2.6vw 2.8vw 0;
-}
-.wall-list {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2.2vw;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 5vw), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 5vw), transparent);
 }
+.wall-feed > .wall-empty { grid-column: 1 / -1; }
+.wall-feed:has(> .wall-empty) { align-content: center; }
 
-.wall-card {
+.wall-convo {
+  display: flex;
+  flex-direction: column;
+  gap: calc(18 * var(--px));
+  min-height: 0;
   flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.7vw;
-  animation: wall-in 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  view-transition-class: wall-convo;
 }
+.wall-convo:not(.is-lead) {
+  padding-top: calc(40 * var(--px));
+  border-top: calc(2 * var(--px)) solid var(--w-line);
+}
+
 .wall-who {
-  display: flex;
-  align-items: center;
-  gap: 0.55vw;
-  font-size: 1.05vw;
-  color: var(--w-mute);
-}
-.wall-glyph { display: inline-flex; color: var(--w-ink); }
-.wall-glyph svg { width: 1.25vw; height: 1.25vw; }
-.wall-name { font-size: 1.25vw; font-weight: 700; color: var(--w-text); }
-
-/* customer: grey bubble, tail bottom-left — the deck's DM bubble */
-.wall-customer {
-  align-self: flex-start;
-  max-width: 88%;
-  padding: 0.9vw 1.5vw 1vw;
-  border-radius: 1.6vw 1.6vw 1.6vw 0.35vw;
-  background: var(--w-bubble);
-  font-size: 1.75vw;
+  font-size: calc(30 * var(--px));
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.005em;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  color: var(--w-ink);
 }
-.wall-muted { color: var(--w-mute); font-weight: 400; font-style: italic; }
+.wall-channel { font-weight: 500; color: var(--w-ink-3); }
 
-/* Maya: ink bubble, tail bottom-right, indented under the question */
+.wall-customer {
+  font-size: calc(44 * var(--px));
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.wall-convo:not(.is-lead) .wall-customer { font-size: calc(40 * var(--px)); }
+.wall-quiet { color: var(--w-ink-3); font-weight: 600; }
+
 .wall-reply {
-  align-self: flex-end;
-  max-width: 86%;
   display: flex;
   flex-direction: column;
-  gap: 0.3vw;
-  padding: 0.85vw 1.4vw 1vw;
-  border-radius: 1.6vw 1.6vw 0.35vw 1.6vw;
-  background: var(--w-ink);
-  color: #fff;
-  animation: wall-reply-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-.wall-reply p {
-  font-size: 1.4vw;
-  line-height: 1.3;
-  white-space: pre-line;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  gap: calc(10 * var(--px));
+  padding: calc(22 * var(--px)) calc(32 * var(--px)) calc(26 * var(--px));
+  background: var(--w-paper);
+  border-radius: calc(20 * var(--px));
 }
 .wall-maya {
   display: flex;
-  align-items: center;
-  gap: 0.4vw;
-  font-size: 0.95vw;
+  align-items: baseline;
+  gap: calc(20 * var(--px));
+  font-size: calc(28 * var(--px));
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #ff9c7a;
+  color: var(--w-ink-2);
 }
-.wall-time { color: rgba(255, 255, 255, 0.7); text-transform: none; letter-spacing: 0; }
-.wall-booked {
-  margin-left: 0.4vw;
-  padding: 0.1vw 0.6vw;
-  border-radius: 99px;
-  background: var(--w-hot);
-  color: #fff;
-  letter-spacing: 0.04em;
+.wall-time { font-weight: 600; color: var(--w-ink-3); }
+.wall-reply-text {
+  font-size: calc(40 * var(--px));
+  font-weight: 600;
+  line-height: 1.22;
+  color: var(--w-ink);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
 }
 
-.wall-reply.is-thinking {
+/* The newest conversation carries the room. */
+.wall-convo.is-lead {
+  grid-column: 1 / -1;
+  gap: calc(22 * var(--px));
+}
+.wall-convo.is-lead .wall-who { font-size: calc(32 * var(--px)); }
+.wall-convo.is-lead .wall-customer {
+  font-size: calc(60 * var(--px));
+  -webkit-line-clamp: 2;
+}
+.wall-convo.is-lead .wall-reply {
+  padding: calc(28 * var(--px)) calc(40 * var(--px)) calc(34 * var(--px));
+  border-radius: calc(24 * var(--px));
+}
+.wall-convo.is-lead .wall-reply-text {
+  font-size: calc(46 * var(--px));
+  -webkit-line-clamp: 3;
+}
+
+/* Older ones step back so the eye lands on the newest. */
+.wall-convo:not(.is-lead) { opacity: 0.8; }
+
+/* Waiting on Maya, or passed to the owner: clear, but quiet. */
+.wall-reply.is-typing {
   flex-direction: row;
   align-items: center;
-  gap: 0.9vw;
-  padding: 0.8vw 1.4vw;
-  background: var(--w-mist);
-  color: var(--w-ink);
+  gap: calc(20 * var(--px));
+  background: transparent;
+  border: calc(2 * var(--px)) solid var(--w-line);
 }
-.wall-reply.is-thinking .wall-maya { color: var(--w-ink); }
-.wall-dots { display: inline-flex; gap: 0.35vw; }
+.wall-reply.is-typing .wall-maya { color: var(--w-ink-3); }
+.wall-dots { display: inline-flex; gap: calc(10 * var(--px)); }
 .wall-dots i {
-  width: 0.5vw;
-  height: 0.5vw;
+  width: calc(12 * var(--px));
+  height: calc(12 * var(--px));
   border-radius: 50%;
-  background: var(--w-ink);
-  animation: wall-dot 1.2s ease-in-out infinite;
+  background: var(--w-ink-3);
+  animation: wall-dot 1.4s ease-in-out infinite;
 }
-.wall-dots i:nth-child(2) { animation-delay: 0.15s; }
-.wall-dots i:nth-child(3) { animation-delay: 0.3s; }
+.wall-dots i:nth-child(2) { animation-delay: 0.18s; }
+.wall-dots i:nth-child(3) { animation-delay: 0.36s; }
+@keyframes wall-dot {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(calc(-6 * var(--px))); }
+}
 
 .wall-reply.is-held {
-  background: #fff;
-  color: var(--w-text);
-  box-shadow: inset 0 0 0 0.12vw var(--w-hot);
+  background: transparent;
+  border: calc(2 * var(--px)) dashed var(--w-line);
 }
-.wall-reply.is-held .wall-maya { color: var(--w-hot); }
-.wall-reply.is-held p { font-size: 1.25vw; }
+.wall-reply.is-held .wall-reply-text { color: var(--w-ink-2); }
 
-.wall-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1vw;
-  padding-bottom: 6vw;
+/* An order is the payoff: one accent rule and one line, nothing louder. */
+.wall-convo.is-booked .wall-reply { box-shadow: inset calc(8 * var(--px)) 0 0 var(--w-accent); }
+.wall-booked {
+  font-size: calc(30 * var(--px));
+  font-weight: 800;
+  color: var(--w-accent);
 }
+
+/* ── empty room ── */
+.wall-empty { padding-bottom: calc(40 * var(--px)); }
 .wall-empty-big {
-  font-family: var(--w-display);
-  font-size: 4.6vw;
+  font-size: calc(120 * var(--px));
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.03em;
-  color: var(--w-ink);
+  letter-spacing: -0.035em;
 }
-.wall-empty-fine { font-size: 1.6vw; color: var(--w-mute); }
+.wall-empty-sub {
+  margin-top: calc(32 * var(--px)) !important;
+  font-size: calc(48 * var(--px));
+  font-weight: 600;
+  color: var(--w-ink-2);
+}
 
-/* ── right: orders, like receipts on a counter ── */
-.wall-orders {
+/* ── right rail: three numbers, latest orders, the way in ── */
+.wall-rail {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 2.6vw 2.2vw 0;
-  background: var(--w-mist);
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 5vw), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 5vw), transparent);
+  padding-left: calc(56 * var(--px));
+  border-left: calc(2 * var(--px)) solid var(--w-line);
 }
-.wall-orders ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+
+.wall-stats {
   display: flex;
   flex-direction: column;
-  gap: 0.9vw;
+  gap: calc(28 * var(--px));
 }
-.wall-order {
-  padding: 1.1vw 1.3vw 1.15vw;
-  border-radius: 1vw;
-  background: #fff;
-  box-shadow: 0 0.1vw 0 rgba(21, 80, 54, 0.06), 0 0.8vw 1.8vw -1.2vw rgba(21, 80, 54, 0.35);
-  animation: wall-in 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-.wall-order-top {
+.wall-stat {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 1vw;
+  flex-direction: column;
+  gap: calc(4 * var(--px));
 }
-.wall-order-num { font-size: 1.05vw; font-weight: 700; color: var(--w-mute); }
-.wall-order-total {
-  font-family: var(--w-display);
-  font-size: 1.7vw;
-  letter-spacing: -0.02em;
-  color: var(--w-ink);
+.wall-stat-value {
+  font-size: calc(80 * var(--px));
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
 }
+.wall-stat-label {
+  font-size: calc(28 * var(--px));
+  font-weight: 600;
+  color: var(--w-ink-2);
+}
+.wall-stat.is-muted .wall-stat-value { color: var(--w-ink-3); }
+
+.wall-orders {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(18 * var(--px));
+  margin-top: calc(36 * var(--px)) !important;
+  padding-top: calc(32 * var(--px)) !important;
+  border-top: calc(2 * var(--px)) solid var(--w-line);
+}
+.wall-order { display: flex; flex-direction: column; gap: calc(2 * var(--px)); }
+.wall-order-top { font-size: calc(30 * var(--px)); font-weight: 800; }
 .wall-order-item {
-  margin-top: 0.35vw;
-  font-size: 1.3vw;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: calc(28 * var(--px));
+  font-weight: 600;
+  color: var(--w-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.wall-order-meta {
-  margin-top: 0.55vw;
+
+.wall-cta {
+  margin-top: auto;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 1vw;
-  color: var(--w-mute);
+  flex-direction: column;
+  gap: calc(14 * var(--px));
+  padding-top: calc(32 * var(--px));
 }
-.wall-order-status {
-  padding: 0.12vw 0.65vw;
-  border-radius: 99px;
-  font-weight: 700;
-  font-size: 0.85vw;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--w-hot);
-  box-shadow: inset 0 0 0 0.1vw currentColor;
+.wall-qr {
+  width: calc(224 * var(--px));
+  padding: calc(14 * var(--px));
+  background: #fff;
+  border-radius: calc(16 * var(--px));
 }
-.wall-order-status.is-confirmed,
-.wall-order-status.is-shipped {
-  color: #fff;
-  background: var(--w-ink);
-  box-shadow: none;
+.wall-qr img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.wall-cta-url {
+  font-size: calc(30 * var(--px));
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
 }
-.wall-side-empty {
-  padding: 1.4vw;
-  border: 0.12vw dashed #c9d5cf;
-  border-radius: 1vw;
-  font-size: 1.15vw;
-  color: var(--w-mute);
+.wall-stale {
+  font-size: calc(28 * var(--px));
+  font-weight: 600;
+  color: var(--w-ink-3);
 }
 
-/* ── motion ── */
-@keyframes wall-in {
-  from { opacity: 0; transform: translateY(-1vw) scale(0.98); }
-  to { opacity: 1; transform: none; }
-}
-@keyframes wall-reply-in {
-  from { opacity: 0; transform: translateY(0.8vw) scale(0.96); transform-origin: right bottom; }
-  to { opacity: 1; transform: none; }
-}
-@keyframes wall-dot {
-  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
-  40% { opacity: 1; transform: translateY(-0.25vw); }
-}
-@keyframes wall-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(232, 85, 43, 0.6); }
-  70% { box-shadow: 0 0 0 0.9vw rgba(232, 85, 43, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(232, 85, 43, 0); }
-}
-
-/* Reorders run as a view transition (see WallScreen). Cards glide to their
-   new slot; a brand-new card drops in from above. The page itself does not
-   cross-fade, or every number would flicker. */
+/* ── motion: conversations slide to their new places; a new one rises in ── */
 ::view-transition-group(*) {
-  animation-duration: 620ms;
-  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation-duration: 560ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
 }
-::view-transition-new(*):only-child {
-  animation: wall-in 620ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+::view-transition-new(*.wall-convo):only-child {
+  animation: wall-rise 600ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
+}
+::view-transition-old(*.wall-convo):only-child {
+  animation: wall-fade 220ms ease-out both;
+}
+@keyframes wall-rise {
+  from { opacity: 0; transform: translateY(3vh); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes wall-fade {
+  to { opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wall-card,
-  .wall-reply,
-  .wall-order,
-  .wall-live i,
-  .wall-dots i {
+  ::view-transition-group(*),
+  ::view-transition-new(*.wall-convo):only-child,
+  ::view-transition-old(*.wall-convo):only-child {
     animation: none;
   }
+  .wall-dots i { animation: none; opacity: 0.6; }
 }

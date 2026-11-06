@@ -1,21 +1,14 @@
-import localFont from "next/font/local";
+import { Inter_Tight } from "next/font/google";
 import WallScreen from "@/components/wall/WallScreen";
 import "./wall.css";
 
 export const metadata = { title: "Live · Myna" };
 
-// The summit deck's type, so the wall and the slides read as one show.
-const dela = localFont({
-  src: "../../fonts/DelaGothicOne-Regular.ttf",
-  variable: "--font-wall-display",
-  display: "block",
-});
-const atkinson = localFont({
-  src: [
-    { path: "../../fonts/AtkinsonHyperlegible-Regular.ttf", weight: "400" },
-    { path: "../../fonts/AtkinsonHyperlegible-Bold.ttf", weight: "700" },
-  ],
-  variable: "--font-wall-text",
+// One plain grotesk, heavy weights only: it has to read from the back of a hall.
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
+  variable: "--font-wall",
   display: "block",
 });
 
@@ -29,7 +22,7 @@ export default async function WallPage({ searchParams }: PageProps<"/wall">) {
   const { handle } = await searchParams;
   const shown = typeof handle === "string" && handle.trim() ? handle.trim().replace(/^@/, "") : "monso.eyewear";
   return (
-    <div className={`${dela.variable} ${atkinson.variable}`}>
+    <div className={interTight.variable}>
       <WallScreen handle={shown} />
     </div>
   );
