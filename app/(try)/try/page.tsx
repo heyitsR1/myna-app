@@ -3,13 +3,14 @@ import "./try.css";
 
 /**
  * Public landing page behind the summit QR code. The audience picks the app
- * they already use and messages Monso Eyewear; Maya answers there. No auth:
+ * they already use, sees the Monso Eyewear shop there, then DMs to order;
+ * Maya answers. No auth:
  * `try` is listed in the matcher exclusions in `proxy.ts`.
  */
 
 export const metadata: Metadata = {
-  title: "Message Monso Eyewear",
-  description: "Ask anything. Maya answers in seconds, in Nepali or English.",
+  title: "Monso Eyewear",
+  description: "See the shop, then DM to order. Maya answers in seconds, in Nepali or English.",
 };
 
 export const viewport: Viewport = {
@@ -21,7 +22,7 @@ const CHANNELS = [
   {
     name: "Instagram",
     handle: "@monso.eyewear",
-    href: "https://ig.me/m/monso.eyewear",
+    href: "https://www.instagram.com/monso.eyewear/",
     tone: "ig",
   },
   {
@@ -31,9 +32,9 @@ const CHANNELS = [
     tone: "wa",
   },
   {
-    name: "Messenger",
+    name: "Facebook",
     handle: "Monso Eyewear",
-    href: "https://m.me/1409707462227849",
+    href: "https://www.facebook.com/1409707462227849",
     tone: "fb",
   },
 ];
@@ -54,13 +55,13 @@ export default function TryPage() {
       </div>
       <section className="try-body">
         <p className="try-kicker">Monso Eyewear</p>
-        <h1>Send us a message.</h1>
+        <h1>See the shop, then DM to order.</h1>
         <p className="try-lede">
           Maya answers in seconds, in Nepali, English or Roman Nepali. Ask about a price, a
           style, delivery, or order a pair.
         </p>
 
-        <nav className="try-links" aria-label="Message Monso">
+        <nav className="try-links" aria-label="Find Monso Eyewear">
           {CHANNELS.map((c) => (
             <a key={c.name} className={`try-link try-${c.tone}`} href={c.href}>
               <span className="try-link-name">{c.name}</span>
