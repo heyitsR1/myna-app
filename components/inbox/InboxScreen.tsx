@@ -417,7 +417,7 @@ export default function InboxScreen() {
                         {pending ? (
                           <span className="pill amber">Order to confirm</span>
                         ) : conv.status === "needs_human" ? (
-                          <span className="pill amber">Needs you</span>
+                          <span className="pill hot">Needs you</span>
                         ) : null}
                         {m && <span className={`pill ${m.cls}`}>{m.label}</span>}
                       </div>
@@ -434,11 +434,7 @@ export default function InboxScreen() {
       <div className="col-thread">
         {!selected ? (
           <div className="empty">
-            <div className="empty-ico">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-            </div>
+            <img className="empty-art" src="/brand/myna-phone.webp" alt="" width={480} height={550} />
             <div className="big">Select a conversation</div>
             <div className="fine">
               Maya answers what she can. Anything she isn&rsquo;t sure about waits here for you.
@@ -515,7 +511,10 @@ export default function InboxScreen() {
                     </div>
                   </div>
                 ) : (
-                  <div key={m.id} className={`m-group ${m.direction === "inbound" ? "in" : "out"}`}>
+                  <div
+                    key={m.id}
+                    className={`m-group ${m.direction === "inbound" ? "in" : "out"} ${m.sender_type === "ai" ? "ai" : ""}`}
+                  >
                     {m.direction !== "inbound" && (
                       <div className="m-who">
                         {m.sender_type === "ai" ? (

@@ -1,4 +1,5 @@
 import Rail from "@/components/Rail";
+import { dela } from "@/app/fonts/dela";
 
 /**
  * The signed-in app shell. Public legal pages live outside this group so
@@ -6,7 +7,7 @@ import Rail from "@/components/Rail";
  */
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
-    <div className="app">
+    <div className={`app ${dela.variable}`}>
       <Rail />
       {children}
     </div>

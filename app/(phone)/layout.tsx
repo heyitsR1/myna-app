@@ -1,3 +1,4 @@
+import { dela } from "@/app/fonts/dela";
 import "./phone.css";
 
 /**
@@ -5,5 +6,5 @@ import "./phone.css";
  * from the Home Screen icon (manifest start_url /m) and from notifications.
  */
 export default function PhoneLayout({ children }: LayoutProps<"/">) {
-  return children;
+  return <div className={`ph-font ${dela.variable}`}>{children}</div>;
 }

@@ -26,6 +26,19 @@
   --rose: #be123c;
   --rose-bg: #fff1f2;
 
+  /* Summit-deck brand, used as accents only (see "brand accents" at the end). */
+  --brand: #155036; /* deep ink green: primary actions, active, Maya */
+  --brand-deep: #10261b; /* near-black green: pressed/hover, dark surfaces */
+  --brand-hover: #0f3d29;
+  --brand-soft: #eef5f0; /* large surfaces, selection */
+  --brand-line: #cfe2d6;
+  --brand-live: #2f8a5c; /* the "Maya is on" dot */
+  --hot: #e8552b; /* decorative only (dots); fails AA as text */
+  --hot-strong: #c8401a; /* white text on it: 5.0:1 */
+  --hot-text: #b23b14; /* on --hot-bg: 5.3:1 */
+  --hot-bg: #fdf0ea;
+  --hot-line: #f6d0c1;
+
   --wa: #25d366;
   --ig: #e1306c;
   --fb: #0866ff;
@@ -86,12 +99,12 @@ button {
 }
 
 ::selection {
-  background: #fde68a;
+  background: #cfe6d8;
   color: var(--text);
 }
 
 :focus-visible {
-  outline: 2px solid var(--text);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -1600,4 +1613,77 @@ html.projector .app {
   color: var(--text);
   border-color: var(--line-strong);
   background: var(--subtle);
+}
+
+/* ── brand accents (summit deck) ───────────────────────────────────────────
+ * A hint of the deck's palette over the neutral base: green for primary
+ * actions, the active/selected state and Maya; the hot orange only for
+ * "Needs you". Layout is untouched. */
+.brand-mark {
+  background: var(--brand);
+}
+.side .brand-name,
+.gate-name {
+  font-family: var(--font-dela), var(--sans);
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--brand-deep);
+}
+.side-link.active,
+.chip.active {
+  color: var(--brand);
+}
+.side-link.active svg {
+  stroke: var(--brand);
+}
+.convo.sel {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--brand-line), inset 3px 0 0 var(--brand);
+}
+.live-dot {
+  background: var(--brand-live);
+  box-shadow: 0 0 0 3px var(--brand-line);
+}
+.switch {
+  background: var(--brand);
+}
+.btn.primary,
+.send {
+  background: var(--brand);
+}
+.btn.primary:hover,
+.send:hover {
+  background: var(--brand-hover);
+}
+.m-group.ai .msg.out {
+  background: var(--brand);
+  color: #fff;
+}
+.m-who svg {
+  fill: var(--brand);
+}
+.pill.hot {
+  background: var(--hot-bg);
+  color: var(--hot-text);
+  box-shadow: inset 0 0 0 1px var(--hot-line);
+}
+.pill.hot::before {
+  background: var(--hot);
+  opacity: 1;
+}
+.chip-count {
+  background: var(--hot-bg);
+  color: var(--hot-text);
+}
+.composer-box:focus-within {
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--brand-line), 0 0 0 4px var(--brand-soft);
+}
+.empty-art {
+  width: 132px;
+  height: auto;
+  margin-bottom: 14px;
+  mix-blend-mode: multiply;
+  -webkit-user-drag: none;
+  user-select: none;
 }

@@ -71,6 +71,7 @@ export default function ChatList() {
           </div>
         ) : list.length === 0 ? (
           <div className="ph-empty pad">
+            {!q && <img className="ph-empty-art" src="/brand/myna-phone.webp" alt="" width={480} height={550} />}
             <div>
               <div className="ph-empty-title">{q ? "No matches" : "No chats here"}</div>
               <div className="ph-empty-sub">DMs from every channel land in this list.</div>

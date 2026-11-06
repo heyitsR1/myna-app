@@ -682,3 +682,31 @@
     stroke-dashoffset: 0;
   }
 }
+
+/* ── brand accents (summit deck), see globals.css ─────────────────────── */
+.gate-card {
+  position: relative;
+}
+.gate-art {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  width: 84px;
+  height: auto;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  user-select: none;
+}
+.gate .field-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(21, 80, 54, 0.12);
+}
+.gate-foot a {
+  color: var(--text-2);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gate-foot a:hover {
+    color: var(--brand);
+  }
+}
+

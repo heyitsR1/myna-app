@@ -1842,3 +1842,86 @@ html:has(.ph) {
   font-size: 13px;
   color: var(--green);
 }
+
+/* ── brand accents (summit deck) ───────────────────────────────────────────
+ * Same hint as the desktop (globals.css): green for primary actions, the
+ * active tab and Maya; hot orange only for what needs the owner. */
+.ph-font {
+  display: contents;
+}
+.ph-btn.primary,
+.ph-btn.primary-sm,
+.ph-send,
+.ph-chip.on,
+.ph-switch.on {
+  background: var(--brand);
+}
+.ph-btn.primary:active:not(:disabled),
+.ph-btn.primary-sm:active:not(:disabled) {
+  background: var(--brand-deep);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ph-btn.primary:hover:not(:disabled) {
+    background: var(--brand-hover);
+  }
+}
+.ph-btn.primary {
+  box-shadow: 0 1px 2px rgba(16, 38, 27, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.ph-tab.on {
+  color: var(--brand);
+}
+.ph-tab-badge,
+.ph-chip-n {
+  background: var(--hot-strong);
+}
+.ph-count {
+  color: var(--hot-text);
+  background: var(--hot-bg);
+  box-shadow: inset 0 0 0 1px var(--hot-line);
+}
+.ph-chat.needs .ph-chat-time {
+  color: var(--hot-text);
+}
+
+/* Maya: deep green instead of the amber-to-pink gradient */
+.ph-maya {
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(47, 138, 92, 0.38), transparent 55%),
+    radial-gradient(90% 80% at 0% 100%, rgba(21, 80, 54, 0.6), transparent 60%),
+    var(--brand-deep);
+  box-shadow: 0 12px 32px -12px rgba(16, 38, 27, 0.5);
+}
+.ph-maya-big {
+  font-family: var(--font-dela), var(--sans);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.ph-maya-spark,
+.ph-feed-dot.ai {
+  background: var(--hot);
+}
+.ph-maya-toggle.on {
+  background: var(--brand);
+}
+.ph-who.ai {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: var(--brand);
+}
+.ph-bubble.out.ai {
+  background: linear-gradient(160deg, #1b6142, var(--brand) 55%, #12432d);
+}
+.ph-composer textarea:focus {
+  border-color: var(--brand);
+}
+.ph-empty-art {
+  width: 72px;
+  height: auto;
+  flex: none;
+  mix-blend-mode: multiply;
+  -webkit-user-drag: none;
+}
+

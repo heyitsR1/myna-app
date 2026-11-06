@@ -47,6 +47,7 @@ export default function LoginForm({ next }: { next: string }) {
   return (
     <main className="gate">
       <div className="gate-card" ref={card}>
+        <img className="gate-art" src="/brand/myna-shop.webp" alt="" width={520} height={620} />
         <div className="gate-brand">
           <BrandMark size={36} />
           <span className="gate-name">Myna</span>

@@ -33,7 +33,7 @@ export default function ChatRow({ c, now, index }: { c: PhoneConversation; now: 
           </span>
           {(needs || pendingOrder || mood || !c.ai_enabled) && (
             <span className="ph-chat-tags">
-              {needs && <span className="pill amber">Needs you</span>}
+              {needs && <span className="pill hot">Needs you</span>}
               {pendingOrder && <span className="pill plain num">Order #{pendingOrder.order_number}</span>}
               {mood && <span className={`pill ${mood.cls}`}>{mood.label}</span>}
               {!c.ai_enabled && <span className="pill plain">Maya off</span>}
