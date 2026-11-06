@@ -18,6 +18,7 @@ import { DECK_ORIGINS } from "./present-config";
  * scroll and open chat. Other keys:
  *
  *  H      hide the tabs and timer buttons
+ *  F      full screen for the whole console (so the timer stays on top)
  *  T      start / pause the audience timer (shown from the first press)
  *  + / =  timer +10 s     ]  timer +20 s     R  hide and reset the timer
  *  arrows move the slides on Slides, even when focus is on a tab button
@@ -179,6 +180,9 @@ export default function PresentScreen({ deckUrl }: { deckUrl: string }) {
       case "h":
       case "H":
         return setTabs((t) => !t);
+      case "f":
+      case "F":
+        return document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
       case "t":
       case "T":
         return toggleTimer();
@@ -320,10 +324,23 @@ export default function PresentScreen({ deckUrl }: { deckUrl: string }) {
 
       {timer.shown && (
         <div className="present-timer" data-state={timerState} role="timer" aria-live="off">
+          <svg className="present-timer-dial" viewBox="0 0 120 120" aria-hidden>
+            {Array.from({ length: 12 }, (_, i) => (
+              <line key={i} className="present-timer-tick" x1="60" y1="7" x2="60" y2="13" transform={`rotate(${i * 30} 60 60)`} />
+            ))}
+            <circle className="present-timer-track" cx="60" cy="60" r="44" />
+            <circle
+              className="present-timer-arc"
+              cx="60"
+              cy="60"
+              r="44"
+              pathLength={1}
+              strokeDasharray="1 1"
+              strokeDashoffset={timer.total > 0 ? 1 - remaining / timer.total : 1}
+              transform="rotate(-90 60 60)"
+            />
+          </svg>
           <span className="present-timer-time">{done ? "Time’s up" : clock(remaining)}</span>
-          <span className="present-timer-bar" aria-hidden>
-            <span style={{ transform: `scaleX(${timer.total > 0 ? remaining / timer.total : 0})` }} />
-          </span>
         </div>
       )}
 
