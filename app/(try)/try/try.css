@@ -1,54 +1,316 @@
 /* /try: the page behind the summit QR. Opened on audience phones, mostly
-   inside Instagram's and the camera's in-app browsers. */
+   inside Instagram's and the camera's in-app browsers. The cream is sampled
+   from the product photos so they sit on the page without a visible edge.
+   One accent only: near-black. Colour comes from the frames themselves.
+
+   At ≥1024px it doubles as a projector slide: content left, a big QR right. */
 
 html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
 
 .try {
+  --t-bg: #eee7db;
+  --t-ink: #1b1a17;
+  --t-ink-2: #5c554b;
+  --t-ink-3: #8c8273;
+  --t-line: #d8cebe;
+  --t-paper: #f8f4ec;
+  --t-display: var(--font-try-display), "Iowan Old Style", Georgia, serif;
+
   min-height: 100svh;
-  background: #f3ece2;
-  color: #1c1a17;
+  background: var(--t-bg);
+  color: var(--t-ink);
   font-family: var(--font-geist), system-ui, sans-serif;
 }
 
-.try-hero {
-  height: 38svh;
-  min-height: 220px;
-  max-height: 360px;
-  overflow: hidden;
-  background: #efe6d8;
-}
-.try-hero img { width: 100%; height: 100%; object-fit: cover; object-position: center 58%; display: block; }
-
-.try-body {
-  max-width: 440px;
+.try-shell {
+  max-width: 460px;
   margin: 0 auto;
-  padding: 26px 22px calc(28px + env(safe-area-inset-bottom, 0px));
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 20px calc(28px + env(safe-area-inset-bottom, 0px));
 }
 
-.try-kicker { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #8a7b66; }
-.try h1 { margin-top: 6px; font-size: 32px; line-height: 1.1; letter-spacing: -0.02em; font-weight: 700; }
-.try-lede { margin-top: 10px; font-size: 16px; line-height: 1.5; color: #4d463d; }
+/* ── bar ── */
+.try-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.try-mark {
+  font-family: var(--t-display);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.try-bar-note {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t-ink-3);
+}
 
-.try-links { margin-top: 22px; display: grid; gap: 10px; }
+/* ── hero: one pair, soft-edged into the page ── */
+.try-hero {
+  height: clamp(150px, 25svh, 230px);
+  margin: 4px -20px 0;
+  overflow: hidden;
+  -webkit-mask-image: radial-gradient(ellipse 78% 56% at 50% 50%, #000 52%, transparent 100%);
+  mask-image: radial-gradient(ellipse 78% 56% at 50% 50%, #000 52%, transparent 100%);
+}
+.try-hero img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 49%;
+}
+
+/* ── the ask ── */
+.try h1 {
+  font-family: var(--t-display);
+  font-size: 33px;
+  line-height: 1.06;
+  font-weight: 450;
+  letter-spacing: -0.02em;
+  font-variation-settings: "opsz" 72, "SOFT" 30;
+  text-wrap: balance;
+}
+.try h1 em {
+  display: block;
+  margin-top: 4px;
+  font-style: italic;
+  font-weight: 350;
+  color: var(--t-ink-2);
+}
+
+.try-links {
+  margin-top: 22px;
+  display: grid;
+  gap: 8px;
+}
 .try-link {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-  padding: 18px 20px; border-radius: 16px; text-decoration: none; color: #fff;
-  touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
-  transition: transform 120ms ease-out, filter 120ms ease-out;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 62px;
+  padding: 10px 18px 10px 12px;
+  border-radius: 14px;
+  background: var(--t-ink);
+  color: #f6f1e8;
+  text-decoration: none;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: transform 120ms ease-out, background-color 120ms ease-out;
 }
-.try-link:active { transform: scale(0.97); filter: brightness(0.92); }
-.try-link-name { font-size: 19px; font-weight: 700; }
-.try-link-handle { font-size: 14px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.try-ig { background: linear-gradient(100deg, #d62976, #962fbf 60%, #4f5bd5); }
-.try-wa { background: #1f9e55; }
-.try-fb { background: #1877f2; }
+.try-link:active { transform: scale(0.98); background: #34312b; }
+.try-glyph {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(246, 241, 232, 0.22);
+}
+.try-link-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.try-link-name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.try-link-handle {
+  font-size: 13.5px;
+  color: rgba(246, 241, 232, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.try-arrow { flex: none; font-size: 18px; color: rgba(246, 241, 232, 0.55); transition: transform 160ms ease-out; }
 @media (hover: hover) and (pointer: fine) {
-  .try-link:hover { filter: brightness(1.06); }
+  .try-link:hover { background: #2c2a25; }
+  .try-link:hover .try-arrow { transform: translateX(3px); color: #f6f1e8; }
 }
 
-.try-ideas-label { margin-top: 26px; font-size: 14px; font-weight: 600; color: #6b5f50; }
-.try-ideas { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.try-ideas li { padding: 8px 13px; border-radius: 999px; background: #fffaf3; border: 1px solid #e3d8c8; font-size: 15px; color: #3a342c; }
+.try-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--t-ink-3);
+}
 
-.try-foot { margin-top: 30px; font-size: 13px; color: #8a7b66; text-align: center; }
-.try-foot b { color: #1c1a17; }
+.try-ideas { margin-top: 26px; }
+.try-ideas ul {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.try-ideas li {
+  padding: 6px 12px 7px;
+  border: 1px solid var(--t-line);
+  border-radius: 999px;
+  font-family: var(--t-display);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--t-ink-2);
+}
+
+/* ── collection strip ── */
+.try-collection { margin-top: 30px; }
+.try-collection ul {
+  list-style: none;
+  margin: 12px -20px 0;
+  padding: 0 20px 4px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 20px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.try-collection ul::-webkit-scrollbar { display: none; }
+.try-collection li {
+  flex: none;
+  width: 128px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+}
+.try-collection img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  object-position: center 50%;
+  border-radius: 12px;
+  background: var(--t-paper);
+}
+.try-sku {
+  margin-top: 8px;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--t-ink-3);
+}
+.try-pname { font-size: 14px; font-weight: 500; }
+
+.try-foot {
+  margin-top: 30px;
+  padding-top: 18px;
+  border-top: 1px solid var(--t-line);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--t-ink-3);
+}
+.try-foot b { color: var(--t-ink); font-weight: 600; }
+
+/* The QR is for the projector only; on a phone you are already here. */
+.try-qr { display: none; }
+
+/* ── projector / desktop: content left, QR right ── */
+@media (min-width: 1024px) {
+  .try { min-height: 100vh; }
+  .try-shell {
+    max-width: none;
+    min-height: 100vh;
+    padding: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 34vw;
+    grid-template-rows: auto 1fr auto auto;
+    grid-template-areas:
+      "bar qr"
+      "main qr"
+      "coll qr"
+      "foot qr";
+    column-gap: 0;
+  }
+  .try-bar { grid-area: bar; padding: 3.4vw 4.6vw 0; }
+  .try-mark { font-size: 1.7vw; }
+  .try-bar-note { font-size: 0.85vw; }
+
+  .try-hero { display: none; }
+
+  .try-main {
+    grid-area: main;
+    align-self: center;
+    padding: 2vw 4.6vw;
+  }
+  .try h1 { font-size: 4.6vw; line-height: 1.02; max-width: 15ch; }
+  .try h1 em { margin-top: 0.6vw; }
+
+  .try-links {
+    margin-top: 2.6vw;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.8vw;
+  }
+  .try-link { min-height: 0; padding: 0.9vw 1.1vw 0.9vw 0.9vw; gap: 0.9vw; border-radius: 0.9vw; }
+  .try-glyph { width: 2.6vw; height: 2.6vw; border-radius: 0.6vw; }
+  .try-glyph svg { width: 1.4vw; height: 1.4vw; }
+  .try-link-name { font-size: 1.15vw; }
+  .try-link-handle { font-size: 0.85vw; }
+  .try-arrow { font-size: 1.1vw; }
+
+  .try-label { font-size: 0.75vw; }
+  .try-ideas { margin-top: 2vw; display: flex; align-items: center; gap: 1.2vw; }
+  .try-ideas ul { margin: 0; gap: 0.6vw; }
+  .try-ideas li { font-size: 1.15vw; padding: 0.35vw 0.9vw 0.45vw; }
+  .try-ideas .try-label { flex: none; }
+
+  .try-collection { grid-area: coll; margin: 0; padding: 0 4.6vw 1.6vw; }
+  .try-collection ul {
+    margin: 0.9vw 0 0;
+    padding: 0;
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1vw;
+  }
+  .try-collection li { width: auto; }
+  .try-collection img { aspect-ratio: 5 / 4; border-radius: 0.8vw; }
+  .try-sku { margin-top: 0.6vw; font-size: 0.75vw; }
+  .try-pname { font-size: 1vw; }
+
+  .try-foot {
+    grid-area: foot;
+    margin: 0 4.6vw;
+    padding: 1.1vw 0 2.4vw;
+    font-size: 0.85vw;
+  }
+
+  .try-qr {
+    grid-area: qr;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--t-paper);
+    border-left: 1px solid var(--t-line);
+    padding: 3vw;
+    text-align: center;
+  }
+  .try-qr-card {
+    width: min(24vw, 52vh);
+    aspect-ratio: 1;
+    padding: 1.6vw;
+    background: #fff;
+    border-radius: 1.4vw;
+    box-shadow: 0 1px 0 rgba(27, 26, 23, 0.06), 0 1.4vw 3.4vw -1.2vw rgba(27, 26, 23, 0.22);
+  }
+  .try-qr-card img { display: block; width: 100%; height: 100%; }
+  .try-qr-title {
+    margin-top: 2.2vw;
+    font-family: var(--t-display);
+    font-size: 3.6vw;
+    font-weight: 450;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .try-qr-url {
+    margin-top: 0.8vw;
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 1.05vw;
+    letter-spacing: 0.02em;
+    color: var(--t-ink-2);
+  }
+}

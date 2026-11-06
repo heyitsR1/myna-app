@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { WallCard } from "@/app/api/wall/route";
+import PlatformGlyph from "@/components/PlatformGlyph";
 import type { Channel } from "@/lib/types";
 
 interface WallOrder {
@@ -27,7 +29,8 @@ const CHANNEL_LABEL: Record<Channel, string> = {
 };
 
 const POLL_MS = 2000;
-const VISIBLE_CARDS = 4;
+const VISIBLE_CARDS = 5;
+const VISIBLE_ORDERS = 6;
 
 function npr(n: number): string {
   return `Rs ${Math.round(n).toLocaleString("en-IN")}`;
@@ -37,9 +40,26 @@ function seconds(ms: number | null): string {
   return ms === null ? "–" : `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`;
 }
 
+function ago(at: string, now: number): string {
+  const s = Math.max(0, Math.round((now - new Date(at).getTime()) / 1000));
+  if (s < 45) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} min ago`;
+  return `${Math.round(m / 60)} h ago`;
+}
+
+/** What the screen shows, minus the numbers: when this changes, the layout moves. */
+function layoutKey(d: WallData): string {
+  const cards = d.cards.slice(0, VISIBLE_CARDS).map((c) => `${c.id}:${c.state}`);
+  const orders = d.orders.slice(0, VISIBLE_ORDERS).map((o) => `${o.number}:${o.status}`);
+  return cards.join(",") + "|" + orders.join(",");
+}
+
 export default function WallScreen({ handle }: { handle: string }) {
   const [data, setData] = useState<WallData | null>(null);
+  const [now, setNow] = useState(0);
   const [stale, setStale] = useState(false);
+  const lastKey = useRef("");
 
   useEffect(() => {
     let alive = true;
@@ -48,9 +68,23 @@ export default function WallScreen({ handle }: { handle: string }) {
         const res = await fetch("/api/wall", { cache: "no-store" });
         if (!res.ok) throw new Error(String(res.status));
         const json = (await res.json()) as WallData;
-        if (alive) {
+        if (!alive) return;
+        const apply = () => {
           setData(json);
+          setNow(Date.now());
           setStale(false);
+        };
+        // A new DM or a fresh reply reorders the feed. Let the browser morph
+        // cards to their new places instead of jumping; numbers-only polls
+        // just update in place.
+        const key = layoutKey(json);
+        const moved = lastKey.current !== "" && key !== lastKey.current;
+        lastKey.current = key;
+        const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (moved && !calm && typeof document.startViewTransition === "function") {
+          document.startViewTransition(() => flushSync(apply));
+        } else {
+          apply();
         }
       } catch {
         if (alive) setStale(true);
@@ -65,90 +99,123 @@ export default function WallScreen({ handle }: { handle: string }) {
   }, []);
 
   const cards = data?.cards.slice(0, VISIBLE_CARDS) ?? [];
+  const orders = data?.orders.slice(0, VISIBLE_ORDERS) ?? [];
   const stats = data?.stats;
 
   return (
     <main className="wall">
-      <header className="wall-head">
+      <aside className="wall-side">
         <div className="wall-brand">
-          <span className={`wall-live ${stale ? "is-stale" : ""}`} aria-hidden="true" />
-          <div>
-            <div className="wall-title">Monso Eyewear</div>
-            <div className="wall-sub">@{handle} · answered live by Maya, on Myna</div>
-          </div>
+          <span className="wall-logo">myna</span>
+          <span className={`wall-live ${stale ? "is-stale" : ""}`}>
+            <i aria-hidden="true" />
+            {stale ? "Reconnecting" : "Live from the room"}
+          </span>
         </div>
-        <div className="wall-cta">
-          Message us at <strong>myna.tailsgate.com/try</strong>
-        </div>
-      </header>
 
-      <section className="wall-stats" aria-label="Live totals">
-        <Stat value={stats?.chats ?? 0} label="people messaged" />
-        <Stat value={stats?.replied ?? 0} label="answered by Maya" />
-        <Stat value={stats?.orders ?? 0} label="orders booked" />
-        <Stat value={stats?.held ?? 0} label="held for the owner" accent={Boolean(stats?.held)} />
-        <Stat value={seconds(stats?.medianReplyMs ?? null)} label="typical reply time" />
-      </section>
-
-      <div className="wall-body">
-        <section className="wall-feed" aria-live="polite">
-          {cards.length === 0 ? (
-            <div className="wall-empty">
-              <div className="wall-empty-big">Send us a DM</div>
-              <div className="wall-empty-fine">Try “kati parcha?” or “I’ll take the aviators”</div>
-            </div>
-          ) : (
-            cards.map((c) => <Card key={c.id} card={c} />)
-          )}
+        <section className="wall-stats" aria-label="Live totals">
+          <Stat value={stats?.chats ?? 0} label="people messaged" />
+          <Stat
+            value={stats?.replied ?? 0}
+            label="answered by Maya"
+            note={stats?.held ? `${stats.held} held for the owner` : null}
+          />
+          <Stat value={seconds(stats?.medianReplyMs ?? 0)} label="typical reply" hot empty={!stats?.medianReplyMs} />
         </section>
 
-        <aside className="wall-orders">
-          <div className="wall-side-title">Orders, as they land</div>
-          {data?.orders.length ? (
-            <ul>
-              {data.orders.map((o) => (
-                <li key={o.number} className="wall-order">
-                  <div className="wall-order-top">
-                    <span className="num">#{o.number}</span>
-                    <span className={`wall-order-status ${o.status}`}>
-                      {o.status === "shipped" ? "Shipped" : o.status === "confirmed" ? "Confirmed" : "Waiting for owner"}
-                    </span>
-                  </div>
-                  <div className="wall-order-item">
-                    {o.quantity > 1 ? `${o.quantity} × ` : ""}
-                    {o.item}
-                  </div>
-                  <div className="wall-order-meta">
-                    {o.name} · <span className="num">{npr(o.total)}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="wall-side-empty">The first one will appear here.</div>
-          )}
-        </aside>
-      </div>
+        <div className="wall-cta">
+          <img src="/wall-qr.svg" alt="" />
+          <div className="wall-cta-lead">
+            <span>@{handle}</span>
+            Scan to message&nbsp;us
+          </div>
+          <div className="wall-cta-url">myna.tailsgate.com/try</div>
+        </div>
+      </aside>
+
+      <section className="wall-feed" aria-live="polite">
+        <h2 className="wall-col-title">Live conversations</h2>
+        {cards.length === 0 ? (
+          <div className="wall-empty">
+            <div className="wall-empty-big">Send Monso a&nbsp;DM.</div>
+            <div className="wall-empty-fine">Try “kati parcha?” and watch Maya answer here.</div>
+          </div>
+        ) : (
+          <div className="wall-list">
+            {cards.map((c) => (
+              <Card key={c.id} card={c} now={now} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <aside className="wall-orders">
+        <h2 className="wall-col-title">
+          Orders <span className="wall-col-count num">{stats?.orders ?? 0}</span>
+        </h2>
+        {orders.length ? (
+          <ul>
+            {orders.map((o) => (
+              <li key={o.number} className="wall-order" style={{ viewTransitionName: `wall-o-${o.number}` }}>
+                <div className="wall-order-top">
+                  <span className="wall-order-num num">#{o.number}</span>
+                  <span className="wall-order-total num">{npr(o.total)}</span>
+                </div>
+                <div className="wall-order-item">
+                  {o.quantity > 1 ? `${o.quantity} × ` : ""}
+                  {o.item}
+                </div>
+                <div className="wall-order-meta">
+                  <span>{o.name}</span>
+                  <span className={`wall-order-status is-${o.status}`}>
+                    {o.status === "shipped" ? "Shipped" : o.status === "confirmed" ? "Confirmed" : "Owner confirming"}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="wall-side-empty">The first order lands here.</div>
+        )}
+      </aside>
     </main>
   );
 }
 
-function Stat({ value, label, accent = false }: { value: number | string; label: string; accent?: boolean }) {
+function Stat({
+  value,
+  label,
+  note = null,
+  hot = false,
+  empty = false,
+}: {
+  value: number | string;
+  label: string;
+  note?: string | null;
+  hot?: boolean;
+  empty?: boolean;
+}) {
   return (
-    <div className={`wall-stat ${accent ? "is-accent" : ""}`}>
+    <div className={`wall-stat ${hot ? "is-hot" : ""} ${empty ? "is-empty" : ""}`}>
       <div className="wall-stat-value num">{value}</div>
       <div className="wall-stat-label">{label}</div>
+      {note && <div className="wall-stat-note">{note}</div>}
     </div>
   );
 }
 
-function Card({ card }: { card: WallCard }) {
+function Card({ card, now }: { card: WallCard; now: number }) {
   return (
-    <article className={`wall-card is-${card.state}`}>
-      <div className="wall-card-who">
-        <span className={`wall-dot ${card.channel ?? ""}`} aria-hidden="true" />
+    <article className={`wall-card is-${card.state}`} style={{ viewTransitionName: `wall-c-${card.id}` }}>
+      <div className="wall-who">
+        {card.channel && (
+          <span className="wall-glyph">
+            <PlatformGlyph name={card.channel} size={20} />
+          </span>
+        )}
         <span className="wall-name">{card.name}</span>
-        {card.channel && <span className="wall-channel">{CHANNEL_LABEL[card.channel]}</span>}
+        {card.channel && <span className="wall-meta">{CHANNEL_LABEL[card.channel]}</span>}
+        {now > 0 && <span className="wall-meta">· {ago(card.at, now)}</span>}
       </div>
 
       <p className="wall-customer">
@@ -157,14 +224,14 @@ function Card({ card }: { card: WallCard }) {
         ) : card.customerText ? (
           card.customerText
         ) : (
-          <span className="wall-muted">New message</span>
+          <span className="wall-muted">New message…</span>
         )}
       </p>
 
       {card.state === "thinking" && (
         <div className="wall-reply is-thinking">
-          <span className="wall-maya">Maya</span>
-          <span className="wall-dots" aria-label="Maya is replying">
+          <span className="wall-maya">Maya is replying</span>
+          <span className="wall-dots" aria-hidden="true">
             <i />
             <i />
             <i />
@@ -174,7 +241,11 @@ function Card({ card }: { card: WallCard }) {
       {(card.state === "replied" || card.state === "booked") && card.reply && (
         <div className="wall-reply">
           <span className="wall-maya">
-            Maya{card.replyMs !== null && card.replyMs > 0 && <span className="wall-time num"> · {seconds(card.replyMs)}</span>}
+            Maya
+            {card.replyMs !== null && card.replyMs > 0 && (
+              <span className="wall-time num"> · replied in {seconds(card.replyMs)}</span>
+            )}
+            {card.state === "booked" && <span className="wall-booked">Order booked</span>}
           </span>
           <p>{card.reply}</p>
         </div>
