@@ -71,7 +71,11 @@ async function dm(sender, text) {
   return { status: res.status, ms: Date.now() - t };
 }
 
-/** Wait until Maya (or a hold) has answered this customer's latest message. */
+/**
+ * Wait until Maya has sent this customer something after their latest
+ * message. A chat flagged for the owner with nothing sent is not an answer:
+ * counting it as one is how silent holds hid in earlier load tests.
+ */
 async function waitForReply(sender, after, timeoutMs = 90000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -80,8 +84,8 @@ async function waitForReply(sender, after, timeoutMs = 90000) {
       const msgs = await rest(
         `messages?conversation_id=eq.${convs[0].id}&direction=eq.outbound&created_at=gt.${new Date(after).toISOString()}&select=body,status,sender_type,created_at&order=created_at.asc`,
       );
-      if (msgs?.length) return { ms: Date.parse(msgs[0].created_at) - after, msgs, conv: convs[0] };
-      if (convs[0].status === "needs_human") return { ms: Date.now() - after, msgs: [], conv: convs[0], held: true };
+      const sent = (msgs ?? []).filter((m) => m.status !== "draft_pending");
+      if (sent.length) return { ms: Date.parse(sent[0].created_at) - after, msgs: sent, conv: convs[0] };
     }
     await new Promise((r) => setTimeout(r, 700));
   }
@@ -101,13 +105,13 @@ const results = await Promise.all(
     const hook1 = await dm(c.sender, c.first);
     const r1 = await waitForReply(c.sender, sent1 - 1500);
     let r2 = null, hook2 = null;
-    if (r1 && !r1.held) {
+    if (r1) {
       await new Promise((r) => setTimeout(r, 1500 + Math.random() * 3000)); // a human reading the reply
       const sent2 = Date.now();
       hook2 = await dm(c.sender, c.second);
       r2 = await waitForReply(c.sender, sent2 - 1500);
     }
-    const line = r1 ? `${s(r1.ms)}${r1.held ? " (held for owner)" : ""}` : "NO REPLY";
+    const line = r1 ? s(r1.ms) : "NO REPLY";
     console.log(`  ${c.sender.slice(-4)}  "${c.first}" → ${line}${r2 ? ` · follow-up ${s(r2.ms)}` : hook2 ? " · follow-up NO REPLY" : ""}`);
     return { c, hook1, hook2, r1, r2 };
   }),
@@ -121,7 +125,6 @@ console.log(`
 webhook acks: ${hooks.filter((h) => h.status === 200).length}/${hooks.length} OK, slowest ${Math.max(...hooks.map((h) => h.ms))}ms
 first replies: ${firsts.length}/${N} · median ${s(pct(firsts, 50))} · p90 ${s(pct(firsts, 90))} · slowest ${s(firsts.at(-1) ?? 0)}
 follow-ups:    ${seconds.length}/${results.filter((r) => r.hook2).length} · median ${s(pct(seconds, 50))} · slowest ${s(seconds.at(-1) ?? 0)}
-held for owner: ${results.filter((r) => r.r1?.held).length}
 outbound rows logged: ${failedSends} (fake ids, so Meta refuses delivery: expected "failed")
 total wall time: ${s(Date.now() - t0)}
 `);

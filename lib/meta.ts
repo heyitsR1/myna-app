@@ -16,15 +16,34 @@ export interface SendResult {
   error?: string;
 }
 
+/**
+ * Never throws: a network error used to escape from here and kill the whole
+ * reply pipeline, so the customer got nothing and nothing was logged as
+ * failed. A dropped connection is retried once; a timeout is not, because the
+ * message may already have been delivered.
+ */
 async function post(url: string, token: string, body: unknown, label: string): Promise<SendResult> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 2 && !res; attempt++) {
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (err) {
+      const name = (err as { name?: string } | null)?.name;
+      const error = err instanceof Error ? err.message : String(err);
+      console.error(`[meta] ${label} send threw (attempt ${attempt + 1}):`, error);
+      if (name === "TimeoutError" || name === "AbortError" || attempt === 1) return { ok: false, error };
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  }
+  if (!res) return { ok: false, error: "no response" };
 
   if (!res.ok) {
     const text = await res.text().catch(() => "<unreadable>");
@@ -94,6 +113,53 @@ export function sendWhatsAppMessage(
     },
     `WhatsApp (number ${phoneNumberId})`,
   );
+}
+
+/**
+ * Show the customer that Maya is on it, the moment their message lands:
+ * "seen" plus the typing dots on Instagram and Messenger (Send API
+ * `sender_action`), blue ticks plus the typing indicator on WhatsApp (needs
+ * the inbound message id). The dots clear when the reply arrives, or after
+ * about 20-25s. Best effort: never throws, gives up after 3s, and a failure
+ * changes nothing else.
+ */
+export async function sendTypingIndicator(
+  channel: Channel,
+  accountId: string,
+  recipientId: string,
+  accessToken: string,
+  inboundMessageId: string,
+): Promise<void> {
+  const send = async (url: string, body: unknown) => {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!res.ok) {
+        const text = (await res.text().catch(() => "")).slice(0, 160);
+        console.warn(`[meta] ${channel} typing indicator not shown (${res.status}): ${text}`);
+      }
+    } catch (err) {
+      console.warn(`[meta] ${channel} typing indicator failed:`, err instanceof Error ? err.message : err);
+    }
+  };
+
+  if (channel === "whatsapp") {
+    await send(`${FB_BASE}/${accountId}/messages`, {
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: inboundMessageId,
+      typing_indicator: { type: "text" },
+    });
+    return;
+  }
+  const url = channel === "instagram" ? `${IG_BASE}/${accountId}/messages` : `${FB_BASE}/${accountId}/messages`;
+  // One action per request. Seen first, so the dots don't sit on an unread message.
+  await send(url, { recipient: { id: recipientId }, sender_action: "mark_seen" });
+  await send(url, { recipient: { id: recipientId }, sender_action: "typing_on" });
 }
 
 /**

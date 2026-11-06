@@ -7,8 +7,14 @@
  * tool, and every tool re-checks its inputs against the catalogue. Prices,
  * totals and order numbers come back from the tools, never from the model.
  *
- * Hard rules that must not depend on a model (abuse gets silence, discounts
- * and complaints go to the owner) run before this in reply.ts.
+ * Hard rules that must not depend on a model (abuse, discounts, complaints
+ * and asks for a person get a fixed holding line) run before this in reply.ts.
+ *
+ * Bounded in time and in load: every call carries the turn's deadline, so a
+ * slow API can't outlive the Worker's ~30s background budget, and at most
+ * MAYA_MAX_CONCURRENT turns run Claude at once per isolate. A 429/529 is
+ * retried once if there is time; anything else throws and reply.ts falls back
+ * to Llama, then to a holding line. Nobody is left unanswered.
  *
  * Model: MAYA_MODEL (default claude-haiku-5-5), called with fetch so the
  * Worker needs no SDK. Swap models without a deploy:
@@ -28,6 +34,49 @@ export interface HistoryEntry {
 
 const API = "https://api.anthropic.com/v1/messages";
 const MAX_TURNS = 5;
+
+/** Claude turns allowed in flight per isolate; the rest queue briefly, then fall back to Llama. */
+const MAX_CONCURRENT = Number(process.env.MAYA_MAX_CONCURRENT) || 24;
+/** How long a turn waits for a free slot before going to Llama instead. */
+const QUEUE_WAIT_MS = 3000;
+
+let active = 0;
+const waiting: Array<() => void> = [];
+
+/** A release function, or null when no slot freed up within `waitMs`. */
+function acquireSlot(waitMs: number): Promise<(() => void) | null> {
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    active--;
+    waiting.shift()?.();
+  };
+  if (active < MAX_CONCURRENT) {
+    active++;
+    return Promise.resolve(release);
+  }
+  return new Promise((resolve) => {
+    const wake = () => {
+      clearTimeout(timer);
+      active++;
+      resolve(release);
+    };
+    const timer = setTimeout(() => {
+      const i = waiting.indexOf(wake);
+      if (i !== -1) waiting.splice(i, 1);
+      resolve(null);
+    }, waitMs);
+    waiting.push(wake);
+  });
+}
+
+export class MayaBusyError extends Error {}
+
+export function isTimeout(err: unknown): boolean {
+  const name = (err as { name?: string } | null)?.name;
+  return name === "TimeoutError" || name === "AbortError";
+}
 
 export function claudeEnabled(): boolean {
   const brain = process.env.MAYA_BRAIN?.trim().toLowerCase();
@@ -76,6 +125,8 @@ export interface AgentResult {
   handoff: string | null;
   turns: number;
   model: string;
+  /** The deadline cut the loop short; what was gathered so far is returned. */
+  timedOut?: boolean;
 }
 
 type Block =
@@ -128,7 +179,7 @@ const TOOLS = [
   {
     name: "handoff_to_owner",
     description:
-      "Pass the conversation to the shop owner. Use for anything you can't or shouldn't decide: discounts or price changes, refunds, returns, damaged items, wholesale/bulk prices, custom requests, an upset customer, or a question your context doesn't answer. Your text reply becomes a draft the owner checks before it is sent, so write a short holding line.",
+      "Pass the conversation to the shop owner. Use for anything you can't or shouldn't decide: discounts or price changes, refunds, returns, damaged items, wholesale/bulk prices, custom requests, an upset customer, or a question your context doesn't answer. The owner is notified and your text is sent to the customer right away, so write one short warm line in their language saying the owner will reply here shortly, and still answer anything else in their message you can. Never promise anything on the owner's behalf.",
     input_schema: {
       type: "object",
       properties: { reason: { type: "string", description: "One short sentence for the owner." } },
@@ -138,18 +189,19 @@ const TOOLS = [
   },
 ];
 
-function systemPrompt(brandName: string, toneNotes: string | null, chunks: RetrievedChunk[], products: Product[], pending: string): string {
+function systemPrompt(brandName: string, toneNotes: string | null, chunks: RetrievedChunk[], products: Product[], pending: string, note: string | null): string {
   const context = chunks.length
     ? chunks.map((c, i) => `[${i + 1}] ${c.content}`).join("\n\n")
     : "(nothing in the shop guide matched this message)";
   return `You are Maya, the shop assistant for ${brandName}, a small sunglasses shop in Nepal. You chat with customers on Instagram, WhatsApp and Messenger for the owner.
 
 How you talk:
-- Like a friendly Kathmandu shopkeeper texting a customer: warm, quick, natural. Short messages (1-3 sentences, under 50 words). No bullet lists in your own words, no corporate tone.
+- Like a friendly Kathmandu shopkeeper texting a customer: warm, quick, natural. Short messages (1-3 sentences, under 50 words). No bullet lists in your own words, no corporate tone. Plain text only: DMs don't render markdown, so never use ** or #.
 - Mirror the customer's language and script exactly: English → English; romanised Nepali ("kati parcha?") → romanised Nepali written only in Latin letters (never mix in Devanagari or Hindi words); Devanagari → Devanagari; mixed → mixed.
 - Answer every question in their message, not just the first.
 - Actually help them choose: ask what it's for (riding, trekking, everyday, gift), suggest the best 1-2 pairs with a reason, and show photos. Be a good salesperson, never pushy.
 - Stay on the shop. If someone asks for something unrelated (homework, code, general chat), politely bring it back to sunglasses.
+- Always reply. Gibberish, a lone emoji, "?" or a message you don't understand gets a short friendly line and a question about what they're looking for. Never leave a customer without an answer.
 
 Photos customers send (you can see them):
 - Sunglasses in the photo (a screenshot, a reel, another brand, a celebrity, a friend's pair): say what you see in a few words (frame shape, colour, lens), find the closest Monso pair by shape, colour and lens, and send its photo. Never claim it is the same brand.
@@ -170,13 +222,37 @@ Catalogue (exact NPR prices):
 ${catalogueForPrompt(products)}
 
 This customer's open order: ${pending}
-
+${note ? `\nAbout this customer right now: ${note}\n` : ""}
 Shop guide (most relevant parts):
 ${context}`;
 }
 
-async function callClaude(system: string, messages: ApiMessage[]): Promise<{ content: Block[]; stop_reason: string }> {
-  const res = await fetch(API, {
+async function callClaude(
+  system: string,
+  messages: ApiMessage[],
+  deadline: number,
+): Promise<{ content: Block[]; stop_reason: string }> {
+  for (let attempt = 0; ; attempt++) {
+    const left = deadline - Date.now();
+    if (left < 1500) throw new DOMException("Maya ran out of time", "TimeoutError");
+    const res = await postClaude(system, messages, AbortSignal.timeout(left));
+    if (res.ok) return (await res.json()) as { content: Block[]; stop_reason: string };
+    const detail = (await res.text().catch(() => "")).slice(0, 300);
+    // Rate limited or overloaded: one quick retry when the deadline allows,
+    // otherwise let reply.ts fall back to Llama straight away.
+    const retryAfterMs = Math.min(2000, (Number(res.headers.get("retry-after")) || 1) * 1000);
+    if ((res.status === 429 || res.status === 529) && attempt === 0 && deadline - Date.now() > retryAfterMs + 5000) {
+      console.warn(`[agent] Claude ${res.status}, retrying in ${retryAfterMs}ms`);
+      await new Promise((r) => setTimeout(r, retryAfterMs));
+      continue;
+    }
+    throw new Error(`Claude ${res.status}: ${detail}`);
+  }
+}
+
+function postClaude(system: string, messages: ApiMessage[], signal: AbortSignal): Promise<Response> {
+  return fetch(API, {
+    signal,
     method: "POST",
     headers: {
       "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
@@ -192,10 +268,6 @@ async function callClaude(system: string, messages: ApiMessage[]): Promise<{ con
       messages,
     }),
   });
-  if (!res.ok) {
-    throw new Error(`Claude ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
-  }
-  return (await res.json()) as { content: Block[]; stop_reason: string };
 }
 
 type ContentBlock = Record<string, unknown>;
@@ -232,20 +304,51 @@ export async function runMaya(input: {
   chunks: RetrievedChunk[];
   history: HistoryEntry[];
   pendingOrder: string;
+  /** A line about the customer's mood from triage, e.g. that they sound impatient. */
+  note?: string | null;
   tools: AgentTools;
+  /** Epoch ms. Calls are aborted at this point. */
+  deadline: number;
 }): Promise<AgentResult> {
   const { products } = input.tools;
-  const system = systemPrompt(input.brandName, input.toneNotes, input.chunks, products, input.pendingOrder);
+  const system = systemPrompt(input.brandName, input.toneNotes, input.chunks, products, input.pendingOrder, input.note ?? null);
   const messages = toApiMessages(input.history);
   if (messages.length === 0 || messages[messages.length - 1].role !== "user") {
     throw new Error("conversation does not end with a customer message");
   }
 
+  const release = await acquireSlot(Math.min(QUEUE_WAIT_MS, Math.max(0, input.deadline - Date.now() - 8000)));
+  if (!release) throw new MayaBusyError(`all ${MAX_CONCURRENT} Claude slots busy`);
+  try {
+    return await loop(input, system, messages);
+  } finally {
+    release();
+  }
+}
+
+async function loop(
+  input: Parameters<typeof runMaya>[0],
+  system: string,
+  messages: ApiMessage[],
+): Promise<AgentResult> {
+  const { products } = input.tools;
   const result: AgentResult = { text: "", photos: [], showList: false, booking: null, handoff: null, turns: 0, model: claudeModel() };
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     result.turns = turn + 1;
-    const res = await callClaude(system, messages);
+    let res: { content: Block[]; stop_reason: string };
+    try {
+      res = await callClaude(system, messages, input.deadline);
+    } catch (err) {
+      // Out of time after earlier turns already did something (a booking,
+      // photos, the list): send what there is rather than nothing.
+      const gathered = result.text || result.photos.length || result.showList || result.booking;
+      if (turn > 0 && gathered && isTimeout(err)) {
+        result.timedOut = true;
+        return result;
+      }
+      throw err;
+    }
     const text = res.content
       .filter((b): b is { type: "text"; text: string } => b.type === "text")
       .map((b) => b.text)

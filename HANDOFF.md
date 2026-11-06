@@ -500,3 +500,29 @@ Show, which requires a password re-prompt.
 - **Before demoing:** `node scripts/purge-sim-data.mjs --apply`, then
   `/api/health?text=1` must say READY. Real DMs still only work from accounts
   with a role on the Meta app / numbers on the WhatsApp allow-list.
+
+## Nov 6, 2026 — every DM gets a reply (demo Nov 7)
+
+- **Why Maya went silent:** every hold only wrote a *draft* for the owner, and
+  Autopilot only confirms orders, so it never sent them. Holds came from
+  discount/complaint/person/abuse triage, Jev `needs_human ≥ 0.6` (it held a
+  plain "Hello"), frustration ≥ 1.0 (chasers after a silence got held again),
+  and Claude's `handoff_to_owner` tool. Model errors became drafts too.
+  Reels, voice notes and shares were never answered. A network error in a
+  Meta send threw out of the pipeline, and no model call had a timeout.
+- **Now:** `generateAndSendReply` guarantees an outbound message. Holds send a
+  fixed holding line (`lib/holding.ts`, English / romanised Nepali /
+  Devanagari, picked from the customer's own words), still notify the owner
+  and flag the chat. A 24s guard sends one if nothing else has gone out.
+  Models must finish by 19s (Claude calls abort; Llama capped at 9s).
+- Not sent: a message a newer one in the same burst answers; a second holding
+  line within 5 min when nothing else was said in between; chats where the
+  owner switched Maya off.
+- Claude path holds only for abuse (swear list or Jev ≥ 0.85), discount,
+  complaint, asks for a person, frustration ≥ 1.6. `needs_human` and
+  milder frustration go to Claude with a mood note.
+- Typing dots + seen on receipt (IG/Messenger `sender_action`, WhatsApp
+  read + `typing_indicator`), best effort.
+- `node scripts/reply-guarantee-test.mjs [--url …]` checks the tricky cases
+  (then `--cleanup`). Staging Worker `myna-staging` has `ANTHROPIC_API_KEY` and
+  no VAPID keys, so tests there never page the owner.

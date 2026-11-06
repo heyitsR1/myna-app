@@ -63,14 +63,28 @@ function ollamaBase(): string {
 
 /**
  * Send a chat and get the model's raw text back — pass a JSON schema to
- * constrain the output. Throws on connection or HTTP failure; callers
- * degrade to needs_human.
+ * constrain the output. Throws on connection or HTTP failure, and after
+ * `timeoutMs` when given; callers degrade to a holding reply.
  */
 export async function chatJSON(
   system: string,
   messages: ChatMessage[],
   schema?: JsonSchema,
+  timeoutMs?: number,
 ): Promise<string> {
+  if (!timeoutMs) return chatOnce(system, messages, schema);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new DOMException(`LLM timed out after ${timeoutMs}ms`, "TimeoutError")), timeoutMs);
+  });
+  try {
+    return await Promise.race([chatOnce(system, messages, schema), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function chatOnce(system: string, messages: ChatMessage[], schema?: JsonSchema): Promise<string> {
   const provider = await activeProvider();
   const { chat: model } = providerModels(provider);
 

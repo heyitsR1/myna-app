@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOrCreateDefaultBrand } from "@/lib/brand";
 import { generateAndSendReply } from "@/lib/reply";
-import { ATTACHMENT_LABEL, envTokenFor, fetchCustomerName } from "@/lib/meta";
+import { ATTACHMENT_LABEL, envAccountFor, envTokenFor, fetchCustomerName, sendTypingIndicator } from "@/lib/meta";
 import type { Channel } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -76,7 +76,7 @@ interface InboundMessage {
   text: string;
   /** When the platform says it was sent, ISO. Null when absent. */
   sentAt: string | null;
-  /** A photo / video / post with no words. Logged for the owner, never auto-answered. */
+  /** A photo / video / post / voice note with no words. Answered only if no words follow within a few seconds. */
   attachmentOnly?: boolean;
   /** A photo Maya can look at: Instagram/Messenger CDN url, or a WhatsApp media id. */
   media?: { kind: "image"; url?: string; wa_media_id?: string; mime?: string } | null;
@@ -308,34 +308,46 @@ async function ingest(inbound: InboundMessage): Promise<void> {
   }
   if (!message) return; // duplicate delivery — already processed
 
+  // The reply deadline counts from here, not from when after() gets going.
+  const receivedAt = Date.now();
   after(async () => {
+    // "Seen" and the typing dots straight away, so the wait reads as Maya
+    // working, not as silence. Skipped when the owner has switched Maya off
+    // in this chat: they answer, and dots with no reply would be a lie.
+    const token = connection.access_token ?? envTokenFor(inbound.channel);
+    const account = connection.external_account_id ?? envAccountFor(inbound.channel);
+    const typing =
+      token && account && conversation.ai_enabled !== false
+        ? sendTypingIndicator(inbound.channel, account, inbound.senderId, token, inbound.externalMessageId)
+        : Promise.resolve();
+
     // Keep the customer's name current, so the inbox shows a person not an id.
     // WhatsApp ships the profile name on every message and people rename
     // themselves, so trust a fresh name over a stored one rather than naming
-    // once and never again.
-    const token = connection.access_token ?? envTokenFor(inbound.channel);
-    const name =
-      inbound.senderName ??
-      (conversation.customer_name
-        ? null
-        : token
-          ? await fetchCustomerName(inbound.channel, inbound.senderId, token)
-          : null);
-    if (name && name !== conversation.customer_name) {
-      await supabase
-        .from("conversations")
-        .update({ customer_name: name })
-        .eq("id", conversation.id);
-    }
+    // once and never again. Runs alongside the reply rather than before it.
+    const naming = (async () => {
+      const name =
+        inbound.senderName ??
+        (conversation.customer_name
+          ? null
+          : token
+            ? await fetchCustomerName(inbound.channel, inbound.senderId, token)
+            : null);
+      if (name && name !== conversation.customer_name) {
+        await supabase
+          .from("conversations")
+          .update({ customer_name: name })
+          .eq("id", conversation.id);
+      }
+    })().catch((err) => console.error("[webhook] customer name update failed:", err));
 
-    // A shared ad or video on its own is context, not a question: wait for
-    // the words that usually follow ("kati parcha?") before Maya answers.
-    // A photo is different, Maya can look at it: give the customer a few
-    // seconds to add words, and answer the photo only if they don't (the
-    // text's own pipeline sees the photo in its history).
-    if (inbound.attachmentOnly && !inbound.media) return;
-    if (inbound.attachmentOnly && inbound.media) {
-      await new Promise((r) => setTimeout(r, 7000));
+    // A shared post, reel, photo or voice note on its own usually comes
+    // just before the words ("kati parcha?"). Give the customer a few seconds
+    // to add them, and answer the attachment only if they don't: the text's
+    // own pipeline sees it in its history. Until 6 Nov anything but a photo
+    // was never answered at all, so a lone reel or voice note got silence.
+    if (inbound.attachmentOnly) {
+      await new Promise((r) => setTimeout(r, 6000));
       const { data: newer } = await supabase
         .from("messages")
         .select("id")
@@ -343,14 +355,18 @@ async function ingest(inbound: InboundMessage): Promise<void> {
         .eq("direction", "inbound")
         .gt("created_at", message.created_at)
         .limit(1);
-      if (newer && newer.length > 0) return;
+      if (newer && newer.length > 0) {
+        await Promise.all([typing, naming]);
+        return;
+      }
     }
 
     try {
-      await generateAndSendReply(conversation.id, message.id);
+      await generateAndSendReply(conversation.id, message.id, { receivedAt });
     } catch (err) {
       console.error("[webhook] reply pipeline failed:", err);
     }
+    await Promise.all([typing, naming]);
   });
 }
 
