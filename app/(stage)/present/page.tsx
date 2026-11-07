@@ -1,6 +1,7 @@
 import localFont from "next/font/local";
 import PresentScreen from "@/components/stage/PresentScreen";
 import { DECK_ORIGINS } from "@/components/stage/present-config";
+import { remoteChannel } from "@/lib/remote";
 import "./present.css";
 
 export const metadata = {
@@ -38,7 +39,7 @@ export default async function PresentPage({ searchParams }: PageProps<"/present"
   }
   return (
     <div className={dela.variable}>
-      <PresentScreen deckUrl={deckUrl} />
+      <PresentScreen deckUrl={deckUrl} channel={remoteChannel()} />
     </div>
   );
 }

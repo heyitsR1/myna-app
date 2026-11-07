@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { getSupabase } from "@/lib/supabase";
+import type { RemoteState } from "@/lib/remote";
 import { DECK_ORIGINS } from "./present-config";
 
 /**
@@ -23,6 +25,10 @@ import { DECK_ORIGINS } from "./present-config";
  *  + / =  timer +10 s     ]  timer +20 s     R (or click the clock)  hide it
  *  arrows move the slides on Slides, even when focus is on a tab button
  *  B      swap in the backup recording (and back); Shift+B restarts it
+ *
+ * The phone remote (/remote) sends the same keys over a Supabase broadcast
+ * channel, and this console reports its state back so the remote can show
+ * what's on screen.
  *
  * Keys typed into an input inside a frame are ignored, so the inbox's
  * composer never switches tabs. The deck can't share its keydowns (cross
@@ -75,13 +81,14 @@ function isTyping(target: EventTarget | null) {
   return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
 }
 
-export default function PresentScreen({ deckUrl }: { deckUrl: string }) {
+export default function PresentScreen({ deckUrl, channel }: { deckUrl: string; channel: string }) {
   const [mode, setMode] = useState<Mode>("slides");
   const [tabs, setTabs] = useState(true);
   const [timer, setTimer] = useState<Timer>(TIMER_IDLE);
   const [now, setNow] = useState(0);
   const [backupReady, setBackupReady] = useState(false);
   const [backup, setBackup] = useState(false);
+  const [deckAt, setDeckAt] = useState<RemoteState["deck"]>(null);
 
   const deckRef = useRef<HTMLIFrameElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -238,6 +245,11 @@ export default function PresentScreen({ deckUrl }: { deckUrl: string }) {
     // The deck forwards its keys by postMessage.
     const onMessage = (e: MessageEvent) => {
       if (!DECK_ORIGINS.includes(e.origin)) return;
+      const at = e.data as { type?: unknown; slide?: unknown; step?: unknown; index?: unknown; total?: unknown } | null;
+      if (at?.type === "deck-at" && typeof at.slide === "string") {
+        setDeckAt({ slide: at.slide, step: Number(at.step) || 0, index: Number(at.index) || 0, total: Number(at.total) || 0 });
+        return;
+      }
       const data = e.data as { type?: unknown; key?: unknown; shiftKey?: unknown } | null;
       if (data?.type !== "present-key" || typeof data.key !== "string") return;
       const shift = typeof data.shiftKey === "boolean" ? data.shiftKey : data.key === "B";
@@ -252,6 +264,51 @@ export default function PresentScreen({ deckUrl }: { deckUrl: string }) {
       onLoads.forEach((off) => off());
     };
   }, []);
+
+  // ---- Phone remote -----------------------------------------------------
+
+  const remoteRef = useRef<ReturnType<NonNullable<ReturnType<typeof getSupabase>>["channel"]> | null>(null);
+
+  const report = useEffectEvent(() => {
+    const state: RemoteState = {
+      mode,
+      backup,
+      backupReady,
+      tabs,
+      timer: { shown: timer.shown, running, remaining: Math.round(remainingAt(timer, Date.now())) },
+      deck: deckAt,
+    };
+    remoteRef.current?.send({ type: "broadcast", event: "state", payload: state });
+  });
+
+  useEffect(() => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const ch = supabase
+      .channel(channel)
+      .on("broadcast", { event: "cmd" }, ({ payload }) => {
+        const p = payload as { key?: unknown; shift?: unknown } | null;
+        if (typeof p?.key === "string") onPresentKey(p.key, p.shift === true);
+      })
+      .on("broadcast", { event: "hello" }, () => report())
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") report();
+      });
+    remoteRef.current = ch;
+    // Heartbeat, so the remote knows the laptop is still there.
+    const beat = setInterval(() => report(), 2000);
+    return () => {
+      clearInterval(beat);
+      remoteRef.current = null;
+      supabase.removeChannel(ch);
+    };
+  }, [channel]);
+
+  // Report every change straight away (the clock ticks itself on the phone).
+  const stateKey = JSON.stringify({ mode, backup, backupReady, tabs, deckAt, timer });
+  useEffect(() => {
+    report();
+  }, [stateKey]);
 
   // Slides takes focus so the arrow keys drive the deck; every other view
   // takes it back, so keys land here and arrows never reach the hidden deck.
