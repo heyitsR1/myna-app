@@ -3,7 +3,10 @@ import PresentScreen from "@/components/stage/PresentScreen";
 import { DECK_ORIGINS } from "@/components/stage/present-config";
 import "./present.css";
 
-export const metadata = { title: "Present · Myna" };
+export const metadata = {
+  title: "Present · Myna",
+  icons: { icon: "/icons/maya-icon.png", apple: "/icons/maya-icon.png" },
+};
 
 // Dela Gothic One for the audience timer, subset to printable ASCII (10 KB
 // instead of the 2.5 MB CJK original).
